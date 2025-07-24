@@ -16,6 +16,27 @@ gunicorn -w 4 -b 0.0.0.0:5000 app:app
 gunicorn --bind 0.0.0.0:5000 main:app
 ```
 
+### Testing
+```bash
+# Install test dependencies and run all tests
+./scripts/run_tests.sh install
+./scripts/run_tests.sh all
+
+# Run with coverage (minimum 80% required)
+./scripts/run_tests.sh coverage
+
+# Run specific test categories
+./scripts/run_tests.sh unit
+./scripts/run_tests.sh integration
+./scripts/run_tests.sh marker openai_api
+
+# Run single test file
+uv run pytest tests/unit/test_openai_service.py -v
+
+# Run specific test
+uv run pytest tests/unit/test_openai_service.py::TestOpenAIService::test_web_search_rate_limiting -v
+```
+
 ### Dependency Management
 ```bash
 # Install dependencies using uv (recommended)
@@ -46,9 +67,10 @@ cat uv.lock
 This is a Flask-based LINE Bot application that integrates Azure OpenAI for conversational AI capabilities. The architecture follows a service-oriented pattern with clear separation of concerns:
 
 ### Core Services Layer
-- **LineService** (`src/services/line_service.py`): Handles LINE Bot SDK integration, webhook verification, and message processing
-- **OpenAIService** (`src/services/openai_service.py`): Manages Azure OpenAI API communication with GPT-4.1 model, conversation context, and web search capabilities
+- **LineService** (`src/services/line_service.py`): Handles LINE Bot SDK integration, webhook verification, message processing, and supports both text and image messages
+- **OpenAIService** (`src/services/openai_service.py`): Manages Azure OpenAI API communication with GPT-4.1-mini model, conversation context, web search capabilities, and multimodal (text + vision) processing
 - **ConversationService** (`src/services/conversation_service.py`): Maintains in-memory conversation history per user with automatic trimming (supports up to 100 messages per user)
+- **ImageProcessor** (`src/utils/image_utils.py`): Handles image download from LINE content API, format validation, base64 conversion for GPT-4 vision API, and automatic cleanup
 
 ### Application Structure
 - **Entry Points**: `app.py` (main Flask application) and `main.py` (alternative entry point)
@@ -56,26 +78,30 @@ This is a Flask-based LINE Bot application that integrates Azure OpenAI for conv
 - **Utilities**: `src/utils/logger.py` for centralized logging
 - **Web Interface**: Templates and static files for dashboard monitoring
 
-### Data Flow Pattern
+### Multimodal Data Flow Pattern
 1. LINE webhook → LineService (signature verification)
-2. Message processing → ConversationService (context management)  
-3. AI response generation → OpenAIService (Azure OpenAI integration)
-4. Response delivery → LINE Bot API
+2. Message type detection (text/image) → Appropriate processing path
+3. For images: ImageProcessor downloads → converts to base64 → GPT-4 vision API
+4. For text: Direct processing → ConversationService (context management)
+5. AI response generation → OpenAIService (Azure OpenAI integration with optional web search)
+6. Response delivery → LINE Bot API
 
 ### Key Design Decisions
 - **In-memory storage**: Conversation history stored in memory for MVP demo purposes (not production-ready for scaling)
 - **Conversation limits**: 100 messages per user, 1000 total conversations to prevent memory overflow
-- **Streaming responses**: GPT-4.1 integration supports streaming for better user experience
+- **Streaming responses**: GPT-4.1-mini integration supports streaming for better user experience
 - **Bilingual support**: Built-in English/Thai language handling with automatic language detection and matching
 - **Web search integration**: OpenAI's built-in web search tool for real-time information (news, weather, stocks)
 - **Rate limiting**: 10 web searches per user per hour to prevent abuse
 - **Search caching**: 15-minute cache for search results to improve performance
+- **Multimodal capabilities**: Native image understanding using GPT-4.1-mini's vision features
+- **Context-aware image processing**: Images processed with conversation context for better understanding
 
 ## Service Dependencies
 
 ### External APIs
 - **LINE Messaging API**: Requires official LINE Bot account and channel setup
-- **Azure OpenAI**: Configured for GPT-4.1 deployment with specific endpoint settings
+- **Azure OpenAI**: Configured for GPT-4.1-mini deployment with specific endpoint settings
 
 ### Python Dependencies
 Key packages defined in `pyproject.toml`:
@@ -83,11 +109,12 @@ Key packages defined in `pyproject.toml`:
 - `line-bot-sdk`: Official LINE Bot SDK for Python
 - `openai`: Azure OpenAI Python client
 - `python-dotenv`: Environment variable management
+- `pillow`: Image processing for vision capabilities
+- `requests`: HTTP client for image downloads
+- `pytest`: Testing framework with coverage reporting
 - `flask-sqlalchemy` + `psycopg2-binary`: Database ORM and PostgreSQL adapter (installed but not yet implemented)
-- `email-validator`: Email validation utilities
-- `werkzeug`: WSGI utilities for Flask
 
-## New Features (Latest Update)
+## Current Features
 
 ### Web Search Integration
 - **Intelligent Search**: Bot automatically determines when web search is needed for current information
@@ -96,16 +123,40 @@ Key packages defined in `pyproject.toml`:
 - **Caching**: 15-minute cache for search results to improve response times
 - **Language Matching**: Responses automatically match the user's input language (English/Thai)
 
+### Image Understanding Capabilities
+- **Vision API Integration**: GPT-4.1-mini processes images with accompanying text
+- **Format Support**: JPEG, PNG, GIF, WEBP formats with automatic validation
+- **Size Optimization**: Images resized and compressed for optimal API performance
+- **Context Awareness**: Images processed with conversation history for better understanding
+- **Automatic Cleanup**: Temporary files cleaned up after processing
+
 ### Enhanced Conversation Memory
-- **Extended History**: Increased from 20 to 100 messages per conversation
-- **Better Context**: Maintains longer conversation threads for more meaningful interactions
+- **Extended History**: 100 messages per conversation for better context retention
+- **Message Type Tracking**: Tracks text, image, and mixed message types
 - **Automatic Cleanup**: Old conversations removed when limits are reached
 
 ### Usage Examples
 - "What's the latest news about Thailand?" → Gets current news with sources
 - "What's Tesla's stock price today?" → Provides real-time market data
 - "What's the weather in Bangkok?" → Returns current weather conditions
+- Send image + "What do you see?" → Detailed image analysis with context
 - Language switching: Works seamlessly in both English and Thai
+
+## Testing Infrastructure
+
+The codebase includes comprehensive testing with `pytest`:
+
+### Test Structure
+- **Unit Tests**: Individual components tested in isolation with mocks
+- **Integration Tests**: Component interactions and HTTP endpoints
+- **Coverage Requirements**: Minimum 80% coverage enforced
+- **Test Markers**: `unit`, `integration`, `slow`, `mock`, `line_api`, `openai_api`
+
+### Test Execution
+- **Comprehensive Test Runner**: `scripts/run_tests.sh` with multiple execution modes
+- **Coverage Reporting**: HTML and terminal coverage reports
+- **Mock-Heavy Approach**: No real API calls during testing
+- **Detailed Documentation**: See `README_TESTING.md` for complete testing guide
 
 ## Development Notes
 
@@ -114,6 +165,7 @@ Key packages defined in `pyproject.toml`:
 - Single-instance deployment required for session continuity
 - No database persistence layer implemented
 - Web search limited to OpenAI's built-in tool (no external search APIs)
+- Image processing limited to 5MB files and 2048px dimensions
 
 ### Monitoring Endpoints
 - `/`: Dashboard with user statistics and service status
@@ -125,11 +177,14 @@ Key packages defined in `pyproject.toml`:
 - Structured logging with configurable levels via `LOG_LEVEL` environment variable
 - User privacy protection (truncated user IDs in logs)
 - Webhook event tracking for debugging
+- Image processing logging with metadata
 
 ## Security Considerations
 - LINE webhook signature verification implemented in LineService
 - Environment variable validation prevents missing credentials
 - No sensitive data logged or exposed in dashboard
+- Image download timeout protection (10 seconds)
+- Temporary file cleanup prevents disk space issues
 
 ## Deployment Configuration (Replit)
 - **Platform**: Replit with autoscale deployment enabled
@@ -138,15 +193,9 @@ Key packages defined in `pyproject.toml`:
 - **Port mapping**: Internal port 5000 → External port 80
 - **Entry points**: `app.py` (default) or `main.py` (Replit deployment)
 
-## Testing and Code Quality
-**Note**: No testing framework or linting configuration is currently implemented. Consider adding:
-- Testing framework (pytest) for unit and integration tests
-- Linting tools (flake8, black, pylint) for code quality
-- Pre-commit hooks for automated checks
-
 ## Task Management and Development Workflow
 
-### Task List Protocol (from ai-docs/process-tasks.md)
+### Task List Protocol
 When working on tasks tracked in markdown files:
 1. **Work one sub-task at a time** - Do not start the next sub-task until user approval
 2. **Completion sequence**:
@@ -156,8 +205,9 @@ When working on tasks tracked in markdown files:
 3. **Always update task lists** and maintain "Relevant Files" sections
 4. **Stop after each sub-task** and wait for user go-ahead
 
-### Image and Document Processing
-The codebase includes AI documentation for handling images and documents:
-- Task breakdown and PRD files in `ai-docs/` directory
-- Feature branch `feature/image-text-handling` for image understanding capabilities
-- Attached assets in `attached_assets/` for screenshots and images
+### Development Best Practices
+- Always run tests before committing: `./scripts/run_tests.sh all`
+- Maintain test coverage above 80%
+- Use conventional commit format for clear history
+- Update CLAUDE.md when adding new features or changing architecture
+- Document new environment variables and configuration options

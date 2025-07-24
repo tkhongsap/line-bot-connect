@@ -1,8 +1,10 @@
 import logging
 import json
 import time
+import hashlib
 from datetime import datetime, timedelta
 from openai import AzureOpenAI
+from src.utils.image_utils import ImageProcessor
 
 logger = logging.getLogger(__name__)
 
