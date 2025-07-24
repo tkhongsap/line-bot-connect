@@ -19,8 +19,8 @@ class Settings:
             "AZURE_OPENAI_ENDPOINT", 
             "https://thaibev-azure-subscription-ai-foundry.cognitiveservices.azure.com"
         )
-        self.AZURE_OPENAI_API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
-        self.AZURE_OPENAI_DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4-1-mini")
+        self.AZURE_OPENAI_API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
+        self.AZURE_OPENAI_DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1")
         
         # Application Configuration
         self.DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
@@ -35,7 +35,6 @@ class Settings:
     
     def _validate_settings(self):
         """Validate that required environment variables are set"""
-        
         required_settings = [
             ("LINE_CHANNEL_ACCESS_TOKEN", self.LINE_CHANNEL_ACCESS_TOKEN),
             ("LINE_CHANNEL_SECRET", self.LINE_CHANNEL_SECRET),
@@ -44,19 +43,13 @@ class Settings:
         
         missing_settings = []
         for name, value in required_settings:
-            if not value or value == "your_azure_openai_api_key_here":
+            if not value:
                 missing_settings.append(name)
         
         if missing_settings:
-            print(f"WARNING: Missing or placeholder values for: {', '.join(missing_settings)}")
-            print("The chatbot will start but Azure OpenAI integration may not work until you provide the real API key.")
-        
-        # Only fail if LINE credentials are missing (Azure OpenAI can be added later)
-        critical_missing = [name for name, value in required_settings[:2] if not value]
-        if critical_missing:
             raise ValueError(
-                f"Missing critical environment variables: {', '.join(critical_missing)}. "
-                f"Please check your .env file or environment configuration."
+                f"Missing required environment variables: {', '.join(missing_settings)}. "
+                f"Please set these in Replit Secrets or your .env file."
             )
     
     def get_webhook_url(self, base_url: str) -> str:
