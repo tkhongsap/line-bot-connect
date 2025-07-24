@@ -41,7 +41,7 @@ Preferred communication style: Simple, everyday language.
    - Integrates with Azure OpenAI using the official Python SDK
    - **NEW**: Uses GPT-4.1-nano's native multimodal capabilities for image understanding
    - Maintains conversation context using system prompts
-   - Supports bilingual communication (English/Thai)
+   - Supports multilingual communication with automatic language matching
    - Implements response length optimization for LINE messaging
    - Handles both text-only and multimodal conversations seamlessly
 

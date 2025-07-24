@@ -52,7 +52,7 @@ curl -X GET https://line-bot-connect-tkhongsap.replit.app/webhook
 ### Bot Testing Steps
 1. Add your LINE Official Account as friend
 2. Send a test message: "Hello"
-3. Your AI should respond intelligently in English/Thai
+3. Your AI should respond intelligently in the same language you used for the test message
 4. Check dashboard: `https://line-bot-connect-tkhongsap.replit.app/`
 
 ## Troubleshooting
