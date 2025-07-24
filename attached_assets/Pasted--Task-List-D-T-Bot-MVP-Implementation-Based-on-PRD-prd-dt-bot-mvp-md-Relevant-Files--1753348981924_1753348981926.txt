@@ -51,7 +51,7 @@ Based on PRD: `prd-dt-bot-mvp.md`
 
 - [x] 3.0 Conversation Context Management (CORE DEMO FEATURE)
   - [x] 3.1 Configure Azure OpenAI client with existing endpoint (thaibev-azure-subscription-ai-foundry.cognitiveservices.azure.com)
-  - [x] 3.2 Set up GPT-4.1-mini model deployment integration
+  - [x] 3.2 Set up GPT-4.1-nano model deployment integration
   - [x] 3.3 Design simple in-memory conversation storage per LINE user ID (perfect for demos)
   - [x] 3.4 Implement conversation_service.py for demo-focused conversation continuity
   - [x] 3.5 Create professional bot personality prompts (showcases English/Thai AI capabilities)
@@ -75,7 +75,7 @@ Based on PRD: `prd-dt-bot-mvp.md`
 - [ ] 6.0 Demo Testing & Quality Assurance
   - [ ] 6.1 Test conversation persistence across multiple turns (key demo feature)
   - [ ] 6.2 Test complete demo flow (LINE → Webhook → Azure OpenAI → LINE)
-  - [ ] 6.3 Verify seamless English and Thai language handling by GPT-4.1-mini
+  - [ ] 6.3 Verify seamless English and Thai language handling by GPT-4.1-nano
   - [ ] 6.4 Test graceful error handling during client demonstrations (Azure OpenAI API failures, etc.)
   - [ ] 6.5 Ensure consistent sub-3-second response times for demo sessions
 
