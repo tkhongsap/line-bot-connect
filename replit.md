@@ -39,11 +39,11 @@ Preferred communication style: Simple, everyday language.
 
 2. **OpenAIService** (`src/services/openai_service.py`)
    - Integrates with Azure OpenAI using the official Python SDK
-   - **NEW**: Vision capabilities with GPT-4 for image understanding
+   - **NEW**: Uses GPT-4.1-nano's native multimodal capabilities for image understanding
    - Maintains conversation context using system prompts
    - Supports bilingual communication (English/Thai)
    - Implements response length optimization for LINE messaging
-   - Handles both text-only and vision-enabled conversations
+   - Handles both text-only and multimodal conversations seamlessly
 
 3. **ConversationService** (`src/services/conversation_service.py`)
    - Manages in-memory conversation history per user
@@ -81,10 +81,11 @@ Preferred communication style: Simple, everyday language.
    - Image download from LINE content API
    - Privacy-conscious logging (truncated user IDs)
 
-2. **GPT-4 Vision Integration**  
+2. **GPT-4.1-nano Multimodal Integration**  
    - Base64 image encoding for API compatibility
-   - Vision-enabled message format for Azure OpenAI
+   - Native multimodal message format for Azure OpenAI
    - Mixed conversation context (text + image references)
+   - Superior image understanding compared to previous models
 
 3. **Image Processing Utilities**
    - Format validation (JPG, PNG, GIF)
