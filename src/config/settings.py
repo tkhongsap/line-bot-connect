@@ -20,7 +20,7 @@ class Settings:
             "https://thaibev-azure-subscription-ai-foundry.cognitiveservices.azure.com"
         )
         self.AZURE_OPENAI_API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
-        self.AZURE_OPENAI_DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1-mini")
+        self.AZURE_OPENAI_DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1-nano")
         
         # Application Configuration
         self.DEBUG = os.environ.get("DEBUG", "True").lower() == "true"

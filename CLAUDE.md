@@ -55,7 +55,7 @@ cat uv.lock
   - `LINE_CHANNEL_SECRET`: LINE webhook signature verification key
   - `AZURE_OPENAI_API_KEY`: Azure OpenAI service authentication key
   - `AZURE_OPENAI_ENDPOINT`: Azure cognitive services endpoint URL
-  - `AZURE_OPENAI_DEPLOYMENT_NAME`: Model deployment identifier (e.g., gpt-4.1-mini)
+  - `AZURE_OPENAI_DEPLOYMENT_NAME`: Model deployment identifier (e.g., gpt-4.1-nano)
 - Optional environment variables:
   - `DEBUG`: Enable debug mode (default: False)
   - `LOG_LEVEL`: Logging verbosity (default: INFO)
@@ -68,7 +68,7 @@ This is a Flask-based LINE Bot application that integrates Azure OpenAI for conv
 
 ### Core Services Layer
 - **LineService** (`src/services/line_service.py`): Handles LINE Bot SDK integration, webhook verification, message processing, and supports both text and image messages
-- **OpenAIService** (`src/services/openai_service.py`): Manages Azure OpenAI API communication with GPT-4.1-mini model, conversation context, web search capabilities, and multimodal (text + vision) processing
+- **OpenAIService** (`src/services/openai_service.py`): Manages Azure OpenAI API communication with GPT-4.1-nano model, conversation context, web search capabilities, and multimodal (text + vision) processing
 - **ConversationService** (`src/services/conversation_service.py`): Maintains in-memory conversation history per user with automatic trimming (supports up to 100 messages per user)
 - **ImageProcessor** (`src/utils/image_utils.py`): Handles image download from LINE content API, format validation, base64 conversion for GPT-4 vision API, and automatic cleanup
 
@@ -89,19 +89,19 @@ This is a Flask-based LINE Bot application that integrates Azure OpenAI for conv
 ### Key Design Decisions
 - **In-memory storage**: Conversation history stored in memory for MVP demo purposes (not production-ready for scaling)
 - **Conversation limits**: 100 messages per user, 1000 total conversations to prevent memory overflow
-- **Streaming responses**: GPT-4.1-mini integration supports streaming for better user experience
+- **Streaming responses**: GPT-4.1-nano integration supports streaming for better user experience
 - **Multilingual support**: Comprehensive language handling for English, Thai, Chinese, Japanese, Korean, Vietnamese, Spanish, French, and German with cultural sensitivity and automatic language detection and matching
 - **Web search integration**: OpenAI's built-in web search tool for real-time information (news, weather, stocks)
 - **Rate limiting**: 10 web searches per user per hour to prevent abuse
 - **Search caching**: 15-minute cache for search results to improve performance
-- **Multimodal capabilities**: Native image understanding using GPT-4.1-mini's vision features
+- **Multimodal capabilities**: Native image understanding using GPT-4.1-nano's vision features
 - **Context-aware image processing**: Images processed with conversation context for better understanding
 
 ## Service Dependencies
 
 ### External APIs
 - **LINE Messaging API**: Requires official LINE Bot account and channel setup
-- **Azure OpenAI**: Configured for GPT-4.1-mini deployment with specific endpoint settings
+- **Azure OpenAI**: Configured for GPT-4.1-nano deployment with specific endpoint settings
 
 ### Python Dependencies
 Key packages defined in `pyproject.toml`:
@@ -131,7 +131,7 @@ Key packages defined in `pyproject.toml`:
 - **Language Matching**: Responses automatically match the user's input language across 9 supported languages with cultural context awareness
 
 ### Image Understanding Capabilities
-- **Vision API Integration**: GPT-4.1-mini processes images with accompanying text
+- **Vision API Integration**: GPT-4.1-nano processes images with accompanying text
 - **Format Support**: JPEG, PNG, GIF, WEBP formats with automatic validation
 - **Size Optimization**: Images resized and compressed for optimal API performance
 - **Context Awareness**: Images processed with conversation history for better understanding
