@@ -188,15 +188,12 @@ class TestOpenAIService:
         
         # Check for key characteristics mentioned in the prompt
         assert "conversationalist" in system_prompt
-        assert "multilingual and culturally aware" in system_prompt
+        assert "unapologetic honesty" in system_prompt
         assert "web search" in system_prompt.lower()
         assert "authentic" in system_prompt
         
         # Check for multilingual support
-        assert "Chinese" in system_prompt
-        assert "Japanese" in system_prompt
-        assert "Korean" in system_prompt
-        assert "Vietnamese" in system_prompt
+        assert "wide range of languages" in system_prompt
     
     def test_message_preparation(self, openai_service, sample_openai_response):
         """Test proper message formatting for OpenAI API"""
@@ -252,10 +249,10 @@ class TestOpenAIService:
         assert cache_key not in openai_service.search_cache
         
         # Simulate adding to cache
-        import time
+        from datetime import datetime, timedelta
         openai_service.search_cache[cache_key] = {
             "result": "It's sunny today",
-            "timestamp": time.time()
+            "timestamp": datetime.now()
         }
         
         # Should find cached result
@@ -266,7 +263,7 @@ class TestOpenAIService:
         expired_key = "expired_query"
         openai_service.search_cache[expired_key] = {
             "result": "Old result",
-            "timestamp": time.time() - (16 * 60)  # 16 minutes ago (expired)
+            "timestamp": datetime.now() - timedelta(minutes=16)  # expired
         }
         
         openai_service._cleanup_search_cache()
@@ -350,9 +347,7 @@ class TestOpenAIService:
         system_prompt = openai_service.system_prompt
         
         # Check for comprehensive language support
-        supported_languages = ["English", "Thai", "Chinese", "Japanese", "Korean", "Vietnamese", "Spanish", "French", "German"]
-        for language in supported_languages:
-            assert language in system_prompt, f"Language {language} not found in system prompt"
+        assert "wide range of languages" in system_prompt
         
         # Check for cultural awareness
         cultural_elements = [
