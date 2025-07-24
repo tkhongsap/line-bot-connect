@@ -21,13 +21,13 @@
 
 ## Tasks
 
-- [ ] 1.0 LINE Bot Image Message Handler Integration
-  - [ ] 1.1 Import ImageMessage from linebot.models in line_service.py
-  - [ ] 1.2 Add ImageMessage event handler registration alongside existing TextMessage handler
-  - [ ] 1.3 Implement _handle_image_message method to process incoming image events
-  - [ ] 1.4 Add logging for image message receipt with user privacy protection (truncated user IDs)
-  - [ ] 1.5 Handle cases where images are sent with accompanying text messages
-  - [ ] 1.6 Implement fallback behavior when image processing fails (graceful degradation to text-only response)
+- [x] 1.0 LINE Bot Image Message Handler Integration
+  - [x] 1.1 Import ImageMessage from linebot.models in line_service.py
+  - [x] 1.2 Add ImageMessage event handler registration alongside existing TextMessage handler
+  - [x] 1.3 Implement _handle_image_message method to process incoming image events
+  - [x] 1.4 Add logging for image message receipt with user privacy protection (truncated user IDs)
+  - [x] 1.5 Handle cases where images are sent with accompanying text messages
+  - [x] 1.6 Implement fallback behavior when image processing fails (graceful degradation to text-only response)
 
 - [ ] 2.0 Image Download and Processing Pipeline
   - [ ] 2.1 Create src/utils/image_utils.py module with image processing utilities

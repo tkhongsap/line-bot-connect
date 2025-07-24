@@ -5,7 +5,7 @@ import base64
 import logging
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError, LineBotApiError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +21,14 @@ class LineService:
         self.line_bot_api = LineBotApi(settings.LINE_CHANNEL_ACCESS_TOKEN)
         self.handler = WebhookHandler(settings.LINE_CHANNEL_SECRET)
         
-        # Register message handler
+        # Register message handlers
         @self.handler.add(MessageEvent, message=TextMessage)
         def handle_text_message(event):
             self._handle_text_message(event)
+        
+        @self.handler.add(MessageEvent, message=ImageMessage)
+        def handle_image_message(event):
+            self._handle_image_message(event)
     
     def handle_webhook(self, signature, body):
         """Handle incoming webhook from LINE"""
@@ -102,6 +106,32 @@ class LineService:
                 self._send_message(event.reply_token, error_msg)
             except:
                 pass  # If we can't even send error message, just log and continue
+
+    def _handle_image_message(self, event):
+        """Handle incoming image message from LINE user"""
+        try:
+            user_id = event.source.user_id
+            message_id = event.message.id
+            
+            logger.info(f"Received image message from user {user_id[:8]}... (message_id: {message_id})")
+            
+            # Check if image has accompanying text (available in some LINE versions)
+            accompanying_text = ""
+            if hasattr(event.message, 'text') and event.message.text:
+                accompanying_text = f"\nText: {event.message.text}"
+                logger.info(f"Image from user {user_id[:8]}... has accompanying text")
+            
+            # For now, send a placeholder response including any text
+            placeholder_msg = f"I received your image! Image processing is being implemented. 🖼️{accompanying_text}\n\n我收到了您的圖像！圖像處理功能正在開發中。🖼️"
+            self._send_message(event.reply_token, placeholder_msg)
+            
+        except Exception as e:
+            logger.error(f"Error handling image message: {str(e)}")
+            try:
+                error_msg = "圖像處理時發生錯誤，請稍後再試。\nError processing image, please try again later."
+                self._send_message(event.reply_token, error_msg)
+            except:
+                pass
 
 
 

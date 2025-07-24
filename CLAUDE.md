@@ -119,3 +119,21 @@ Key packages defined in `pyproject.toml`:
 - Testing framework (pytest) for unit and integration tests
 - Linting tools (flake8, black, pylint) for code quality
 - Pre-commit hooks for automated checks
+
+## Task Management and Development Workflow
+
+### Task List Protocol (from ai-docs/process-tasks.md)
+When working on tasks tracked in markdown files:
+1. **Work one sub-task at a time** - Do not start the next sub-task until user approval
+2. **Completion sequence**:
+   - Mark sub-task as completed `[x]` when finished
+   - When all subtasks under a parent are complete: run tests → stage changes → clean up → commit → mark parent complete
+   - Use conventional commit format with `-m` flags for multiline messages
+3. **Always update task lists** and maintain "Relevant Files" sections
+4. **Stop after each sub-task** and wait for user go-ahead
+
+### Image and Document Processing
+The codebase includes AI documentation for handling images and documents:
+- Task breakdown and PRD files in `ai-docs/` directory
+- Feature branch `feature/image-text-handling` for image understanding capabilities
+- Attached assets in `attached_assets/` for screenshots and images
