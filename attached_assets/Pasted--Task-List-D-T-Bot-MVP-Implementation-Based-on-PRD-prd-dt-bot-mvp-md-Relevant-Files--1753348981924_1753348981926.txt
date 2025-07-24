@@ -1,0 +1,88 @@
+# Task List: D&T Bot MVP Implementation
+
+Based on PRD: `prd-dt-bot-mvp.md`
+
+## Relevant Files
+
+- `src/app.py` - Main Flask/FastAPI webhook server entry point
+- `src/services/line_service.py` - LINE Bot SDK Python integration service
+- `src/services/openai_service.py` - Azure OpenAI Python client service with conversation context
+- `src/services/conversation_service.py` - Conversation history management per LINE user
+- `src/utils/logger.py` - Logging utility for activity tracking
+- `src/config/settings.py` - Environment configuration and settings management
+- `tests/test_app.py` - Unit tests for main webhook handler
+- `tests/test_line_service.py` - Unit tests for LINE service
+- `tests/test_openai_service.py` - Unit tests for OpenAI service
+- `tests/test_conversation_service.py` - Unit tests for conversation history management
+- `requirements.txt` - Python dependencies (line-bot-sdk-python, openai, flask/fastapi)
+- `startup.py` - Azure Web App startup script (optional)
+- `.env` - Environment variables (LINE tokens, Azure OpenAI key)
+- `.env.example` - Example environment variables template
+- `deploy.json` - Azure Web App deployment configuration (optional)
+- `runtime.txt` - Python version specification for Azure Web App
+
+### Notes
+
+- Use `pytest` to run all tests
+- LINE Bot SDK Python: `line-bot-sdk-python`
+- Azure OpenAI SDK: `openai` package with Azure configuration
+- Web server: Flask or FastAPI for webhook handling
+- **Key Challenge**: Maintain conversation context per LINE user across multiple turns
+- **Context Storage**: Simple in-memory dict (perfect for MVP demo sessions)
+- **Demo Focus**: Optimized for client demonstrations, not enterprise production scale
+- **Hosting Platform**: Azure Web App (recommended for Azure integration)
+- **Webhook URL Format**: `https://your-bot-name.azurewebsites.net/webhook`
+- **Deployment**: Git integration, ZIP deploy, or VS Code Azure extension
+- **SSL**: Automatic HTTPS provided by Azure Web App
+
+## Tasks
+
+- [x] 1.0 LINE Official Account Setup (COMPLETED)
+  - [x] 1.1 Create LINE Official Account (@970jqtyf) - COMPLETED
+  - [x] 1.2 Enable LINE Messaging API - COMPLETED  
+  - [x] 1.3 Obtain Channel credentials (ID: 2007810659, Secret, Access Token) - COMPLETED
+
+- [x] 2.0 Python Development Environment Setup
+  - [x] 2.1 Initialize Python project structure with virtual environment
+  - [x] 2.2 Install required dependencies (line-bot-sdk-python, openai, flask/fastapi)
+  - [x] 2.3 Create environment configuration with LINE and Azure OpenAI credentials
+  - [x] 2.4 Set up basic project structure (src/, tests/, config files)
+  - [x] 2.5 Create development server with basic health check endpoint
+
+- [x] 3.0 Conversation Context Management (CORE DEMO FEATURE)
+  - [x] 3.1 Configure Azure OpenAI client with existing endpoint (thaibev-azure-subscription-ai-foundry.cognitiveservices.azure.com)
+  - [x] 3.2 Set up GPT-4.1-mini model deployment integration
+  - [x] 3.3 Design simple in-memory conversation storage per LINE user ID (perfect for demos)
+  - [x] 3.4 Implement conversation_service.py for demo-focused conversation continuity
+  - [x] 3.5 Create professional bot personality prompts (showcases English/Thai AI capabilities)
+
+- [ ] 4.0 LINE Bot Webhook Implementation
+  - [x] 4.1 Create Flask/FastAPI webhook endpoint (/webhook)
+  - [x] 4.2 Implement LINE webhook signature verification for security
+  - [ ] 4.3 Create LINE service module for processing and sending messages
+  - [ ] 4.4 Integrate conversation context with Azure OpenAI API calls
+  - [ ] 4.5 Handle message formatting and length limits for LINE responses
+
+- [ ] 5.0 Azure Web App Deployment & Webhook Registration
+  - [ ] 5.1 Create Azure Web App with Python runtime in Azure Portal
+  - [ ] 5.2 Configure App Service plan and resource group
+  - [ ] 5.3 Deploy Python webhook server to Azure Web App (Git/ZIP deploy)
+  - [ ] 5.4 Configure environment variables in Azure Web App settings
+  - [ ] 5.5 Register webhook URL (https://your-bot-name.azurewebsites.net/webhook) in LINE Developer Console
+  - [ ] 5.6 Verify webhook connection using LINE's verification feature
+  - [ ] 5.7 Configure LINE bot settings (disable auto-reply, enable webhook)
+
+- [ ] 6.0 Demo Testing & Quality Assurance
+  - [ ] 6.1 Test conversation persistence across multiple turns (key demo feature)
+  - [ ] 6.2 Test complete demo flow (LINE → Webhook → Azure OpenAI → LINE)
+  - [ ] 6.3 Verify seamless English and Thai language handling by GPT-4.1-mini
+  - [ ] 6.4 Test graceful error handling during client demonstrations (Azure OpenAI API failures, etc.)
+  - [ ] 6.5 Ensure consistent sub-3-second response times for demo sessions
+
+- [ ] 7.0 Demo Readiness & Basic Monitoring
+  - [ ] 7.1 Implement demo-appropriate error handling with graceful fallbacks
+  - [ ] 7.2 Set up basic logging for demo troubleshooting and conversation tracking
+  - [ ] 7.3 Add simple conversation memory management (basic cleanup for demo sessions)
+  - [ ] 7.4 Implement basic cost control and demo usage limits for Azure OpenAI
+
+  - [ ] 7.5 Final integration testing and demo rehearsal with actual LINE Official Account
