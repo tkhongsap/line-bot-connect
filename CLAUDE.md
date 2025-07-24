@@ -90,7 +90,7 @@ This is a Flask-based LINE Bot application that integrates Azure OpenAI for conv
 - **In-memory storage**: Conversation history stored in memory for MVP demo purposes (not production-ready for scaling)
 - **Conversation limits**: 100 messages per user, 1000 total conversations to prevent memory overflow
 - **Streaming responses**: GPT-4.1-mini integration supports streaming for better user experience
-- **Bilingual support**: Built-in English/Thai language handling with automatic language detection and matching
+- **Multilingual support**: Comprehensive language handling for English, Thai, Chinese, Japanese, Korean, Vietnamese, Spanish, French, and German with cultural sensitivity and automatic language detection and matching
 - **Web search integration**: OpenAI's built-in web search tool for real-time information (news, weather, stocks)
 - **Rate limiting**: 10 web searches per user per hour to prevent abuse
 - **Search caching**: 15-minute cache for search results to improve performance
@@ -116,12 +116,19 @@ Key packages defined in `pyproject.toml`:
 
 ## Current Features
 
+### Multilingual Support
+- **Comprehensive Language Coverage**: Supports 9 major languages with native-speaker-level responses
+- **Cultural Sensitivity**: Adapts communication style to match cultural norms and formality levels
+- **Language Detection**: Automatically detects user's language and responds accordingly
+- **Regional Variations**: Handles Traditional/Simplified Chinese and regional communication patterns
+- **Hierarchical Communication**: Respects formal/informal distinctions in East Asian languages
+
 ### Web Search Integration
 - **Intelligent Search**: Bot automatically determines when web search is needed for current information
 - **Real-time Data**: Supports queries about news, weather, stock prices, and recent events
 - **Rate Limiting**: 10 searches per user per hour to prevent API abuse
 - **Caching**: 15-minute cache for search results to improve response times
-- **Language Matching**: Responses automatically match the user's input language (English/Thai)
+- **Language Matching**: Responses automatically match the user's input language across 9 supported languages with cultural context awareness
 
 ### Image Understanding Capabilities
 - **Vision API Integration**: GPT-4.1-mini processes images with accompanying text
@@ -140,7 +147,7 @@ Key packages defined in `pyproject.toml`:
 - "What's Tesla's stock price today?" → Provides real-time market data
 - "What's the weather in Bangkok?" → Returns current weather conditions
 - Send image + "What do you see?" → Detailed image analysis with context
-- Language switching: Works seamlessly in both English and Thai
+- Language switching: Works seamlessly across all 9 supported languages (English, Thai, Chinese, Japanese, Korean, Vietnamese, Spanish, French, German) with appropriate cultural context
 
 ## Testing Infrastructure
 
