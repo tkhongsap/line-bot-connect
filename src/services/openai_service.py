@@ -152,23 +152,27 @@ You are representing a sophisticated AI service, so maintain high quality in all
             raise e
 
     def _should_send_chunk(self, current_text, chunk_count):
-        """Determine if current chunk should be sent to LINE"""
+        """Determine if current chunk should be sent to LINE - optimized for fewer, larger chunks"""
+        # Strategy: Send larger chunks to minimize separate text boxes
         # Send chunk if:
-        # 1. We have at least 50 characters
-        # 2. We hit a sentence boundary (. ! ?)
-        # 3. We have 15+ chunks accumulated (prevents too much delay)
+        # 1. We have at least 200 characters AND hit a paragraph/section boundary
+        # 2. We have 300+ characters (prevent overly long chunks)
+        # 3. We've accumulated 30+ API chunks (prevent excessive delay)
         
-        if len(current_text) >= 50:
-            # Check for sentence boundaries
-            if any(current_text.rstrip().endswith(punct) for punct in ['.', '!', '?', ':', '\n']):
+        if len(current_text) >= 200:
+            # Check for paragraph or section boundaries for natural breaks
+            if any(current_text.rstrip().endswith(punct) for punct in ['.', '!', '?']) and '\n' in current_text:
+                return True
+            # Check for numbered list items or bullet points
+            if any(marker in current_text for marker in ['\n1.', '\n2.', '\n3.', '\n-', '\n•']):
                 return True
         
-        # Send if we have accumulated too many chunks (prevent long delays)
-        if chunk_count % 15 == 0 and len(current_text) >= 30:
+        # Send if chunk is getting too long (LINE message limit consideration)
+        if len(current_text) >= 400:
             return True
             
-        # Send if chunk is getting too long
-        if len(current_text) >= 120:
+        # Send if we have accumulated too many API chunks (prevent long delays)
+        if chunk_count % 30 == 0 and len(current_text) >= 100:
             return True
             
         return False

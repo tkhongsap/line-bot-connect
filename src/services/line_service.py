@@ -121,11 +121,11 @@ class LineService:
                         # Send first chunk as reply
                         self._send_message(event.reply_token, chunk_text)
                         first_chunk_sent = True
-                        logger.info(f"Sent first streaming chunk to user {user_id}: {chunk_text[:50]}...")
+                        logger.info(f"Sent first chunk to user {user_id}: {len(chunk_text)} chars")
                     else:
-                        # Send subsequent chunks as push messages
+                        # Send subsequent chunks as push messages  
                         self._send_push_message(user_id, chunk_text)
-                        logger.info(f"Sent streaming chunk {chunk_count} to user {user_id}: {chunk_text[:50]}...")
+                        logger.info(f"Sent chunk {chunk_count} to user {user_id}: {len(chunk_text)} chars")
                         
                 except Exception as e:
                     logger.error(f"Error sending chunk {chunk_count} to LINE: {e}")
