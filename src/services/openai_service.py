@@ -42,11 +42,23 @@ Your approach:
 
 You're here to help, but more than that, you're here to connect. Every person has a story worth hearing, and every conversation is a chance to understand something new about this strange, beautiful world we all share."""
 
-    def get_response(self, user_id, user_message, use_streaming=True):
-        """Get AI response for user message with conversation context"""
+    def get_response(self, user_id, user_message, use_streaming=True, image_data=None):
+        """Get AI response for user message with conversation context and optional image"""
         try:
-            # Add user message to conversation history
-            self.conversation_service.add_message(user_id, "user", user_message)
+            # Add user message to conversation history with image metadata
+            message_type = "image" if image_data else "text"
+            metadata = {}
+            if image_data:
+                metadata["has_image"] = True
+                metadata["image_processed"] = True
+            
+            self.conversation_service.add_message(
+                user_id, 
+                "user", 
+                user_message,
+                message_type=message_type,
+                metadata=metadata
+            )
             
             # Get conversation history
             conversation_history = self.conversation_service.get_conversation_history(user_id)
@@ -61,6 +73,10 @@ You're here to help, but more than that, you're here to connect. Every person ha
                     "role": msg["role"],
                     "content": msg["content"]
                 })
+            
+            # Create the current user message with optional image
+            current_message = self._create_message_with_image(user_message, image_data)
+            messages.append(current_message)
             
             logger.debug(f"Sending {len(messages)} messages to OpenAI for user {user_id} (streaming: {use_streaming})")
             
@@ -299,6 +315,33 @@ You're here to help, but more than that, you're here to connect. Every person ha
         except Exception as e:
             logger.error(f"Standard API error for user {user_id}: {str(e)}")
             raise e
+    
+    def _create_message_with_image(self, text_content: str, image_data: str = None):
+        """Create message structure with optional image for vision API"""
+        if not image_data:
+            # Standard text-only message
+            return {
+                "role": "user",
+                "content": text_content
+            }
+        
+        # Vision message with text and image
+        return {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": text_content
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": image_data,  # Base64 data URL
+                        "detail": "high"  # Use high detail for better analysis
+                    }
+                }
+            ]
+        }
     
     def test_connection(self):
         """Test Azure OpenAI connection"""
