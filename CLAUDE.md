@@ -47,8 +47,8 @@ This is a Flask-based LINE Bot application that integrates Azure OpenAI for conv
 
 ### Core Services Layer
 - **LineService** (`src/services/line_service.py`): Handles LINE Bot SDK integration, webhook verification, and message processing
-- **OpenAIService** (`src/services/openai_service.py`): Manages Azure OpenAI API communication with GPT-4.1 model and conversation context
-- **ConversationService** (`src/services/conversation_service.py`): Maintains in-memory conversation history per user with automatic trimming
+- **OpenAIService** (`src/services/openai_service.py`): Manages Azure OpenAI API communication with GPT-4.1 model, conversation context, and web search capabilities
+- **ConversationService** (`src/services/conversation_service.py`): Maintains in-memory conversation history per user with automatic trimming (supports up to 100 messages per user)
 
 ### Application Structure
 - **Entry Points**: `app.py` (main Flask application) and `main.py` (alternative entry point)
@@ -66,7 +66,10 @@ This is a Flask-based LINE Bot application that integrates Azure OpenAI for conv
 - **In-memory storage**: Conversation history stored in memory for MVP demo purposes (not production-ready for scaling)
 - **Conversation limits**: 100 messages per user, 1000 total conversations to prevent memory overflow
 - **Streaming responses**: GPT-4.1 integration supports streaming for better user experience
-- **Bilingual support**: Built-in English/Thai language handling
+- **Bilingual support**: Built-in English/Thai language handling with automatic language detection and matching
+- **Web search integration**: OpenAI's built-in web search tool for real-time information (news, weather, stocks)
+- **Rate limiting**: 10 web searches per user per hour to prevent abuse
+- **Search caching**: 15-minute cache for search results to improve performance
 
 ## Service Dependencies
 
@@ -84,12 +87,33 @@ Key packages defined in `pyproject.toml`:
 - `email-validator`: Email validation utilities
 - `werkzeug`: WSGI utilities for Flask
 
+## New Features (Latest Update)
+
+### Web Search Integration
+- **Intelligent Search**: Bot automatically determines when web search is needed for current information
+- **Real-time Data**: Supports queries about news, weather, stock prices, and recent events
+- **Rate Limiting**: 10 searches per user per hour to prevent API abuse
+- **Caching**: 15-minute cache for search results to improve response times
+- **Language Matching**: Responses automatically match the user's input language (English/Thai)
+
+### Enhanced Conversation Memory
+- **Extended History**: Increased from 20 to 100 messages per conversation
+- **Better Context**: Maintains longer conversation threads for more meaningful interactions
+- **Automatic Cleanup**: Old conversations removed when limits are reached
+
+### Usage Examples
+- "What's the latest news about Thailand?" → Gets current news with sources
+- "What's Tesla's stock price today?" → Provides real-time market data
+- "What's the weather in Bangkok?" → Returns current weather conditions
+- Language switching: Works seamlessly in both English and Thai
+
 ## Development Notes
 
 ### Current Limitations
 - Conversation storage is in-memory only (lost on restart)
 - Single-instance deployment required for session continuity
 - No database persistence layer implemented
+- Web search limited to OpenAI's built-in tool (no external search APIs)
 
 ### Monitoring Endpoints
 - `/`: Dashboard with user statistics and service status

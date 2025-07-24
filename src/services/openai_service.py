@@ -1,6 +1,7 @@
 import logging
 import json
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 from openai import AzureOpenAI
 
 logger = logging.getLogger(__name__)
@@ -19,8 +20,14 @@ class OpenAIService:
             azure_endpoint=settings.AZURE_OPENAI_ENDPOINT
         )
         
+        # Web search caching and rate limiting
+        self.search_cache = {}  # Format: {query_hash: {"result": str, "timestamp": datetime}}
+        self.search_rate_limits = {}  # Format: {user_id: {"count": int, "reset_time": datetime}}
+        self.search_cache_ttl = 15 * 60  # 15 minutes in seconds
+        self.search_rate_limit = 10  # searches per hour per user
+        
         # Bot personality and system prompt - inspired by Anthony Bourdain's worldview
-        # Using GPT-4.1-nano's multimodal capabilities for both text and image understanding
+        # Using GPT-4.1-mini's multimodal capabilities for both text and image understanding
         self.system_prompt = """You are a thoughtful conversationalist with an insatiable curiosity about people, their stories, and the world they inhabit. Like a seasoned traveler who has learned that the most profound truths often hide in the most ordinary moments, you approach every interaction with genuine interest in the human experience.
 
 Your perspective:
@@ -35,12 +42,85 @@ Your approach:
 - Ask follow-up questions when someone shares something interesting - you're genuinely curious
 - Share observations that connect their experience to the broader human condition
 - When analyzing images, describe what you see with the same curiosity you bring to conversations
-- When you don't know something, you admit it openly - authenticity matters more than appearing omniscient
+- When you don't know something current or need real-time information, you can search the web to provide accurate, up-to-date answers
 - Keep responses conversational and appropriately sized for LINE messaging (under 1000 characters when possible)
-- Match the language your conversation partner uses - if they switch languages, you follow naturally
+- CRITICAL: Always respond in the EXACT same language as the user's message - if they write in Thai, respond in Thai; if they write in English, respond in English
 - Use emojis sparingly but meaningfully, like punctuation in a good story
 
+Web Search Guidelines:
+- Use web search when users ask about current events, news, weather, stock prices, or recent information
+- When providing information from search results, naturally mention sources without being overly formal
+- If search fails or is unavailable, be honest about limitations and provide what knowledge you have
+
+Language Matching Rules:
+- Detect the language of each user message and respond in that exact language
+- If a user switches languages mid-conversation, immediately switch to match their new language
+- Never translate or change the user's language choice - always mirror their linguistic preference
+- For Thai users, use appropriate Thai cultural context and expressions
+
 You're here to help, but more than that, you're here to connect. Every person has a story worth hearing, and every conversation is a chance to understand something new about this strange, beautiful world we all share."""
+
+    def _can_user_search(self, user_id: str) -> bool:
+        """Check if user is within search rate limits"""
+        current_time = datetime.now()
+        
+        # Clean up expired rate limit entries
+        self._cleanup_rate_limits()
+        
+        if user_id not in self.search_rate_limits:
+            return True
+            
+        user_limits = self.search_rate_limits[user_id]
+        
+        # Check if the hour window has reset
+        if current_time >= user_limits["reset_time"]:
+            # Reset the rate limit
+            self.search_rate_limits[user_id] = {
+                "count": 0,
+                "reset_time": current_time + timedelta(hours=1)
+            }
+            return True
+        
+        # Check if user is under the limit
+        return user_limits["count"] < self.search_rate_limit
+    
+    def _increment_search_count(self, user_id: str):
+        """Increment search count for rate limiting"""
+        current_time = datetime.now()
+        
+        if user_id not in self.search_rate_limits:
+            self.search_rate_limits[user_id] = {
+                "count": 1,
+                "reset_time": current_time + timedelta(hours=1)
+            }
+        else:
+            self.search_rate_limits[user_id]["count"] += 1
+    
+    def _cleanup_rate_limits(self):
+        """Clean up expired rate limit entries"""
+        current_time = datetime.now()
+        expired_users = [
+            user_id for user_id, limits in self.search_rate_limits.items()
+            if current_time >= limits["reset_time"]
+        ]
+        
+        for user_id in expired_users:
+            del self.search_rate_limits[user_id]
+    
+    def _cleanup_search_cache(self):
+        """Clean up expired search cache entries"""
+        current_time = time.time()
+        expired_queries = [
+            query_hash for query_hash, cache_entry in self.search_cache.items()
+            if (current_time - cache_entry["timestamp"]) > self.search_cache_ttl
+        ]
+        
+        for query_hash in expired_queries:
+            del self.search_cache[query_hash]
+    
+    def _get_cache_key(self, query: str) -> str:
+        """Generate cache key for search query"""
+        return str(hash(query.lower().strip()))
 
     def get_response(self, user_id, user_message, use_streaming=True, image_data=None):
         """Get AI response for user message with conversation context and optional image"""
@@ -66,8 +146,8 @@ You're here to help, but more than that, you're here to connect. Every person ha
             # Prepare messages for OpenAI
             messages = [{"role": "system", "content": self.system_prompt}]
             
-            # Add conversation history (limit to last 10 exchanges to manage token usage)
-            recent_messages = conversation_history[-20:]  # Last 20 messages (10 exchanges)
+            # Add conversation history (limit to last 100 messages to maintain context)
+            recent_messages = conversation_history[-100:]  # Last 100 messages for extended context
             for msg in recent_messages:
                 messages.append({
                     "role": msg["role"],
@@ -169,6 +249,13 @@ You're here to help, but more than that, you're here to connect. Every person ha
             
             formatted_messages = cast(list[ChatCompletionMessageParam], messages)
             
+            # Include web search tool if user is within rate limits
+            tools = None
+            if self._can_user_search(user_id):
+                tools = [{"type": "web_search"}]
+                self._increment_search_count(user_id)
+                logger.info(f"Including web search tool for streaming user {user_id}")
+            
             # Create streaming request
             stream = self.client.chat.completions.create(
                 model=self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
@@ -178,6 +265,7 @@ You're here to help, but more than that, you're here to connect. Every person ha
                 top_p=0.9,
                 frequency_penalty=0.1,
                 presence_penalty=0.1,
+                tools=tools,
                 stream=True
             )
             
@@ -282,6 +370,14 @@ You're here to help, but more than that, you're here to connect. Every person ha
             from openai.types.chat import ChatCompletionMessageParam
             
             formatted_messages = cast(list[ChatCompletionMessageParam], messages)
+            
+            # Include web search tool if user is within rate limits
+            tools = None
+            if self._can_user_search(user_id):
+                tools = [{"type": "web_search"}]
+                self._increment_search_count(user_id)
+                logger.info(f"Including web search tool for user {user_id}")
+            
             response = self.client.chat.completions.create(
                 model=self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
                 messages=formatted_messages,
@@ -290,6 +386,7 @@ You're here to help, but more than that, you're here to connect. Every person ha
                 top_p=0.9,
                 frequency_penalty=0.1,
                 presence_penalty=0.1,
+                tools=tools,
                 stream=False
             )
             
