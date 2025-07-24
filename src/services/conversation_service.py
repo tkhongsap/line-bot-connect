@@ -50,7 +50,7 @@ class ConversationService:
             # Global conversation limit management
             self._manage_global_limits()
             
-            logger.debug(f"Added {role} message for user {user_id} (total: {len(self.conversations[user_id]['messages'])})")
+            logger.debug(f"Added {message_type} {role} message for user {user_id} (total: {len(self.conversations[user_id]['messages'])})")
             
         except Exception as e:
             logger.error(f"Error adding message for user {user_id}: {str(e)}")
