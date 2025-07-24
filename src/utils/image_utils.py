@@ -3,11 +3,20 @@ import logging
 import tempfile
 import base64
 import requests
+import signal
 from typing import Dict, Optional, Tuple
 from PIL import Image
 import io
 
 logger = logging.getLogger(__name__)
+
+class TimeoutError(Exception):
+    """Custom timeout exception"""
+    pass
+
+def timeout_handler(signum, frame):
+    """Signal handler for timeout"""
+    raise TimeoutError("Operation timed out")
 
 class ImageProcessor:
     """Handles image download, processing, and cleanup for LINE Bot integration"""
@@ -23,27 +32,37 @@ class ImageProcessor:
     def __init__(self):
         self.temp_files = []  # Track temporary files for cleanup
     
-    def download_image_from_line(self, line_bot_api, message_id: str) -> Optional[Dict]:
+    def download_image_from_line(self, line_bot_api, message_id: str, timeout_seconds: int = 10) -> Optional[Dict]:
         """
-        Download image from LINE Bot API using message ID
+        Download image from LINE Bot API using message ID with timeout
         
         Args:
             line_bot_api: LINE Bot API instance
             message_id: LINE message ID for the image
+            timeout_seconds: Timeout for download operation
             
         Returns:
             Dict with success status and image data/error info
         """
         try:
-            logger.info(f"Downloading image with message_id: {message_id}")
+            logger.info(f"Downloading image with message_id: {message_id} (timeout: {timeout_seconds}s)")
             
-            # Get image content from LINE API
-            image_content = line_bot_api.get_message_content(message_id)
+            # Set up timeout
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(timeout_seconds)
             
-            # Read image data
-            image_data = b''
-            for chunk in image_content.iter_content():
-                image_data += chunk
+            try:
+                # Get image content from LINE API
+                image_content = line_bot_api.get_message_content(message_id)
+                
+                # Read image data
+                image_data = b''
+                for chunk in image_content.iter_content():
+                    image_data += chunk
+                
+            finally:
+                # Cancel timeout
+                signal.alarm(0)
             
             # Validate file size
             if len(image_data) > self.MAX_FILE_SIZE:
@@ -71,6 +90,13 @@ class ImageProcessor:
                 'dimensions': validation_result['dimensions']
             }
             
+        except TimeoutError:
+            logger.error(f"Timeout downloading image {message_id}")
+            return {
+                'success': False,
+                'error': f'Image download timed out after {timeout_seconds} seconds',
+                'error_code': 'DOWNLOAD_TIMEOUT'
+            }
         except Exception as e:
             logger.error(f"Error downloading image {message_id}: {str(e)}")
             return {

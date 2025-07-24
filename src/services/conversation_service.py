@@ -16,8 +16,8 @@ class ConversationService:
         self.max_messages_per_user = 100  # Limit memory usage
         self.max_total_conversations = 1000  # Global limit for demo
     
-    def add_message(self, user_id: str, role: str, content: str):
-        """Add a message to user's conversation history"""
+    def add_message(self, user_id: str, role: str, content: str, message_type: str = "text", metadata: dict = None):
+        """Add a message to user's conversation history with optional metadata"""
         try:
             # Initialize conversation if it doesn't exist
             if user_id not in self.conversations:
@@ -28,10 +28,12 @@ class ConversationService:
                 }
                 logger.info(f"Created new conversation for user {user_id}")
             
-            # Add message
+            # Add message with optional metadata
             message = {
                 "role": role,  # "user" or "assistant"
                 "content": content,
+                "message_type": message_type,  # "text", "image", "mixed"
+                "metadata": metadata or {},
                 "timestamp": datetime.now()
             }
             
