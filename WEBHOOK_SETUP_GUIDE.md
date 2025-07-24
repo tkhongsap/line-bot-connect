@@ -8,9 +8,10 @@
 - **Status**: ✅ Always available (deployed app)
 
 ### Development  
-- **URL**: `https://workspace.tkhongsap.repl.co/webhook`
+- **URL**: `https://3a0d8469-1495-4b1d-afe6-dc163885326a-00-2icgob4ardifi.worf.replit.dev/webhook`
 - **Use for**: Development and testing while coding
 - **Status**: Available when workspace is active
+- **Note**: This URL changes each workspace session - check your dashboard for current URL
 
 ## LINE Developer Console Configuration
 
