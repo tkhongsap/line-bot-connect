@@ -29,14 +29,14 @@
   - [x] 1.5 Handle cases where images are sent with accompanying text messages
   - [x] 1.6 Implement fallback behavior when image processing fails (graceful degradation to text-only response)
 
-- [ ] 2.0 Image Download and Processing Pipeline
-  - [ ] 2.1 Create src/utils/image_utils.py module with image processing utilities
-  - [ ] 2.2 Implement download_image_from_line function using LINE Bot API message content endpoint
-  - [ ] 2.3 Add image format validation (JPG, PNG, GIF) and size limit checking
-  - [ ] 2.4 Create temporary file management with automatic cleanup using tempfile module
-  - [ ] 2.5 Implement image-to-base64 encoding for GPT-4.1-nano vision API compatibility
-  - [ ] 2.6 Add proper error handling for network failures during image download
-  - [ ] 2.7 Implement image preprocessing if needed (resize for API limits, format conversion)
+- [x] 2.0 Image Download and Processing Pipeline
+  - [x] 2.1 Create src/utils/image_utils.py module with image processing utilities
+  - [x] 2.2 Implement download_image_from_line function using LINE Bot API message content endpoint
+  - [x] 2.3 Add image format validation (JPG, PNG, GIF) and size limit checking
+  - [x] 2.4 Create temporary file management with automatic cleanup using tempfile module
+  - [x] 2.5 Implement image-to-base64 encoding for GPT-4.1-nano vision API compatibility
+  - [x] 2.6 Add proper error handling for network failures during image download
+  - [x] 2.7 Implement image preprocessing if needed (resize for API limits, format conversion)
 
 - [ ] 3.0 GPT-4.1-nano Vision Integration
   - [ ] 3.1 Research and implement vision message format for Azure OpenAI GPT-4.1-nano
