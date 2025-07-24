@@ -1,6 +1,12 @@
 # Overview
 
-This is a LINE Bot MVP application that provides conversational AI capabilities through Azure OpenAI integration. The bot maintains conversation context per user and serves as a demonstration platform for AI-powered messaging services. The application is built with Flask and designed for Azure Web App deployment.
+This is a LINE Bot MVP application that provides conversational AI capabilities through Azure OpenAI GPT-4.1 integration. The bot maintains conversation context per user and serves as a demonstration platform for AI-powered messaging services. The application is built with Flask and deployed on Replit with both development and production webhook endpoints available.
+
+**Status**: ✅ Production ready with real credentials configured  
+**Development**: https://workspace.tkhongsap.repl.co/webhook  
+**Production**: https://line-bot-connect-tkhongsap.replit.app/webhook  
+**Azure OpenAI**: Connected and tested successfully with GPT-4.1  
+**Last Updated**: July 24, 2025
 
 # User Preferences
 
