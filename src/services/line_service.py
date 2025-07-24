@@ -70,42 +70,16 @@ class LineService:
             return False
     
     def _handle_text_message(self, event):
-        """Handle incoming text message from LINE user with streaming support"""
+        """Handle incoming text message from LINE user with real-time streaming"""
         try:
             user_id = event.source.user_id
             user_message = event.message.text
             
             logger.info(f"Received message from user {user_id}: {user_message}")
             
-            # Show typing indicator while processing (optional)
-            try:
-                self._show_typing_indicator(user_id)
-            except Exception as e:
-                logger.debug(f"Could not show typing indicator: {e}")
-            
-            # Get AI response with streaming
-            ai_response = self.openai_service.get_response(user_id, user_message, use_streaming=True)
-            
-            if ai_response['success']:
-                # Handle response (potentially break into chunks for long responses)
-                response_message = ai_response['message']
-                
-                # Check if response is too long and should be chunked
-                if len(response_message) > 1000:  # 1000 chars threshold
-                    self._send_chunked_response(event.reply_token, response_message)
-                else:
-                    self._send_message(event.reply_token, response_message)
-                
-                # Log response details
-                streaming_info = " (streamed)" if ai_response.get('streaming') else ""
-                tokens_used = ai_response.get('tokens_used', 0)
-                logger.info(f"Sent response to user {user_id}: {response_message[:100]}...{streaming_info} [{tokens_used} tokens]")
-                
-            else:
-                # Send error message
-                error_msg = "抱歉，我現在無法回應您的訊息。請稍後再試。\nSorry, I'm unable to respond to your message right now. Please try again later."
-                self._send_message(event.reply_token, error_msg)
-                logger.error(f"Failed to get AI response: {ai_response['error']}")
+            # For real-time streaming, we need to use a different approach
+            # We'll get streaming response and send chunks as they arrive
+            self._handle_streaming_response(event, user_id, user_message)
                 
         except Exception as e:
             logger.error(f"Error handling text message: {str(e)}")
@@ -115,6 +89,83 @@ class LineService:
                 self._send_message(event.reply_token, error_msg)
             except:
                 pass  # If we can't even send error message, just log and continue
+
+    def _handle_streaming_response(self, event, user_id, user_message):
+        """Handle response with real-time streaming to LINE"""
+        try:
+            # Add user message to conversation history
+            self.openai_service.conversation_service.add_message(user_id, "user", user_message)
+            
+            # Get conversation history
+            conversation_history = self.openai_service.conversation_service.get_conversation_history(user_id)
+            
+            # Prepare messages for OpenAI
+            messages = [{"role": "system", "content": self.openai_service.system_prompt}]
+            recent_messages = conversation_history[-20:]  # Last 20 messages
+            for msg in recent_messages:
+                messages.append({
+                    "role": msg["role"],
+                    "content": msg["content"]
+                })
+            
+            # Track chunks for LINE streaming
+            chunk_count = 0
+            first_chunk_sent = False
+            
+            def send_chunk_to_line(chunk_text, is_final=False):
+                nonlocal chunk_count, first_chunk_sent
+                chunk_count += 1
+                
+                try:
+                    if not first_chunk_sent:
+                        # Send first chunk as reply
+                        self._send_message(event.reply_token, chunk_text)
+                        first_chunk_sent = True
+                        logger.info(f"Sent first streaming chunk to user {user_id}: {chunk_text[:50]}...")
+                    else:
+                        # Send subsequent chunks as push messages
+                        self._send_push_message(user_id, chunk_text)
+                        logger.info(f"Sent streaming chunk {chunk_count} to user {user_id}: {chunk_text[:50]}...")
+                        
+                except Exception as e:
+                    logger.error(f"Error sending chunk {chunk_count} to LINE: {e}")
+            
+            # Get streaming response with callback
+            ai_response = self.openai_service.get_streaming_response_with_callback(
+                user_id, messages, chunk_callback=send_chunk_to_line
+            )
+            
+            if ai_response['success']:
+                chunks_sent = ai_response.get('chunks_sent', 0)
+                tokens_used = ai_response.get('tokens_used', 0)
+                logger.info(f"Completed streaming response for user {user_id}: {chunks_sent} chunks sent [{tokens_used} tokens]")
+                
+                # If no chunks were sent (very short response), send as regular message
+                if not first_chunk_sent:
+                    self._send_message(event.reply_token, ai_response['message'])
+                    logger.info(f"Sent short response to user {user_id} (no streaming needed)")
+                    
+            else:
+                # Send error message
+                error_msg = "抱歉，我現在無法回應您的訊息。請稍後再試。\nSorry, I'm unable to respond to your message right now. Please try again later."
+                if not first_chunk_sent:
+                    self._send_message(event.reply_token, error_msg)
+                else:
+                    self._send_push_message(user_id, error_msg)
+                logger.error(f"Failed to get AI response: {ai_response.get('error', 'Unknown error')}")
+                
+        except Exception as e:
+            logger.error(f"Error in streaming response: {str(e)}")
+            # Fallback to standard response
+            try:
+                ai_response = self.openai_service.get_response(user_id, user_message, use_streaming=False)
+                if ai_response['success']:
+                    self._send_message(event.reply_token, ai_response['message'])
+                else:
+                    error_msg = "系統發生錯誤，請稍後再試。\nSystem error occurred, please try again later."
+                    self._send_message(event.reply_token, error_msg)
+            except:
+                pass
 
     def _show_typing_indicator(self, user_id):
         """Show typing indicator (LINE doesn't have native typing indicators, but we can simulate)"""
@@ -185,6 +236,22 @@ class LineService:
         
         return formatted.strip()
     
+    def _send_push_message(self, user_id, message_text):
+        """Send push message to LINE user (for streaming chunks)"""
+        try:
+            from linebot.models import TextSendMessage
+            
+            # LINE message limit is 5000 characters
+            if len(message_text) > 5000:
+                message_text = message_text[:4997] + "..."
+            
+            self.line_bot_api.push_message(user_id, TextSendMessage(text=message_text))
+            logger.debug(f"Push message sent to user {user_id}: {len(message_text)} chars")
+            
+        except Exception as e:
+            logger.error(f"Error sending push message: {str(e)}")
+            raise e
+
     def _send_message(self, reply_token, message_text):
         """Send message back to LINE user"""
         try:
