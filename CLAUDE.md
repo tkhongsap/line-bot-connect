@@ -11,6 +11,9 @@ python app.py
 
 # Production mode with gunicorn
 gunicorn -w 4 -b 0.0.0.0:5000 app:app
+
+# Replit deployment (alternative entry point)
+gunicorn --bind 0.0.0.0:5000 main:app
 ```
 
 ### Dependency Management
@@ -30,6 +33,13 @@ cat uv.lock
   - `LINE_CHANNEL_ACCESS_TOKEN`: LINE Bot API access token
   - `LINE_CHANNEL_SECRET`: LINE webhook signature verification key
   - `AZURE_OPENAI_API_KEY`: Azure OpenAI service authentication key
+  - `AZURE_OPENAI_ENDPOINT`: Azure cognitive services endpoint URL
+  - `AZURE_OPENAI_DEPLOYMENT_NAME`: Model deployment identifier (e.g., gpt-4.1-nano)
+- Optional environment variables:
+  - `DEBUG`: Enable debug mode (default: False)
+  - `LOG_LEVEL`: Logging verbosity (default: INFO)
+  - `MAX_MESSAGES_PER_USER`: Conversation history limit (default: 100)
+  - `MAX_TOTAL_CONVERSATIONS`: Total conversation limit (default: 1000)
 
 ## Architecture Overview
 
@@ -70,6 +80,9 @@ Key packages defined in `pyproject.toml`:
 - `line-bot-sdk`: Official LINE Bot SDK for Python
 - `openai`: Azure OpenAI Python client
 - `python-dotenv`: Environment variable management
+- `flask-sqlalchemy` + `psycopg2-binary`: Database ORM and PostgreSQL adapter (installed but not yet implemented)
+- `email-validator`: Email validation utilities
+- `werkzeug`: WSGI utilities for Flask
 
 ## Development Notes
 
@@ -93,3 +106,16 @@ Key packages defined in `pyproject.toml`:
 - LINE webhook signature verification implemented in LineService
 - Environment variable validation prevents missing credentials
 - No sensitive data logged or exposed in dashboard
+
+## Deployment Configuration (Replit)
+- **Platform**: Replit with autoscale deployment enabled
+- **Runtime**: Python 3.11 + Node.js 20 modules
+- **System packages**: OpenSSL, PostgreSQL
+- **Port mapping**: Internal port 5000 → External port 80
+- **Entry points**: `app.py` (default) or `main.py` (Replit deployment)
+
+## Testing and Code Quality
+**Note**: No testing framework or linting configuration is currently implemented. Consider adding:
+- Testing framework (pytest) for unit and integration tests
+- Linting tools (flake8, black, pylint) for code quality
+- Pre-commit hooks for automated checks
