@@ -215,7 +215,7 @@ class TestOpenAIService:
         assert messages[-1]['content'] == user_message
         
         # Check API parameters
-        assert call_args[1]['model'] == "gpt-4.1-nano" 
+        assert call_args[1]['model'] == "gpt-4.1-mini" 
         assert call_args[1]['max_tokens'] == 800
         assert call_args[1]['temperature'] == 0.7
         assert call_args[1]['stream'] is False

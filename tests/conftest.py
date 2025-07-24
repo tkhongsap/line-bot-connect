@@ -19,7 +19,7 @@ def mock_settings():
     settings.AZURE_OPENAI_API_KEY = "test_openai_key"
     settings.AZURE_OPENAI_ENDPOINT = "https://test.openai.azure.com"
     settings.AZURE_OPENAI_API_VERSION = "2025-01-01-preview"
-    settings.AZURE_OPENAI_DEPLOYMENT_NAME = "gpt-4.1-nano"
+    settings.AZURE_OPENAI_DEPLOYMENT_NAME = "gpt-4.1-mini"
     settings.DEBUG = True
     settings.LOG_LEVEL = "DEBUG"
     settings.MAX_MESSAGES_PER_USER = 100

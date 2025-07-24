@@ -34,7 +34,7 @@ cat uv.lock
   - `LINE_CHANNEL_SECRET`: LINE webhook signature verification key
   - `AZURE_OPENAI_API_KEY`: Azure OpenAI service authentication key
   - `AZURE_OPENAI_ENDPOINT`: Azure cognitive services endpoint URL
-  - `AZURE_OPENAI_DEPLOYMENT_NAME`: Model deployment identifier (e.g., gpt-4.1-nano)
+  - `AZURE_OPENAI_DEPLOYMENT_NAME`: Model deployment identifier (e.g., gpt-4.1-mini)
 - Optional environment variables:
   - `DEBUG`: Enable debug mode (default: False)
   - `LOG_LEVEL`: Logging verbosity (default: INFO)
