@@ -75,8 +75,8 @@ You are representing a sophisticated AI service, so maintain high quality in all
                 'message': None
             }
 
-    def _get_streaming_response(self, user_id, messages):
-        """Get streaming response from OpenAI"""
+    def get_streaming_response_with_callback(self, user_id, messages, chunk_callback=None):
+        """Get streaming response from OpenAI with real-time chunk callback for LINE frontend streaming"""
         try:
             from typing import cast
             from openai.types.chat import ChatCompletionMessageParam
@@ -95,26 +95,38 @@ You are representing a sophisticated AI service, so maintain high quality in all
                 stream=True
             )
             
-            # Collect streaming response
+            # Process streaming response with real-time chunks
             full_response = ""
+            current_chunk_text = ""
             total_tokens = 0
             chunk_count = 0
+            sent_chunks = 0
             
-            logger.debug(f"Starting streaming response for user {user_id}")
+            logger.debug(f"Starting real-time streaming response for user {user_id}")
             
             for chunk in stream:
                 chunk_count += 1
                 if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
                     full_response += content
+                    current_chunk_text += content
                     
-                    # Log every 10 chunks to track progress
-                    if chunk_count % 10 == 0:
-                        logger.debug(f"Streaming chunk {chunk_count} for user {user_id}: {len(full_response)} chars")
+                    # Send chunk when we have enough content or reach sentence boundaries
+                    if self._should_send_chunk(current_chunk_text, chunk_count):
+                        if chunk_callback and current_chunk_text.strip():
+                            chunk_callback(current_chunk_text.strip(), is_final=False)
+                            sent_chunks += 1
+                            logger.debug(f"Sent streaming chunk {sent_chunks} to LINE: {len(current_chunk_text)} chars")
+                        current_chunk_text = ""
                 
                 # Track token usage if available
                 if hasattr(chunk, 'usage') and chunk.usage:
                     total_tokens = chunk.usage.total_tokens
+            
+            # Send any remaining content as final chunk
+            if current_chunk_text.strip() and chunk_callback:
+                chunk_callback(current_chunk_text.strip(), is_final=True)
+                sent_chunks += 1
             
             if full_response:
                 full_response = full_response.strip()
@@ -124,15 +136,48 @@ You are representing a sophisticated AI service, so maintain high quality in all
             # Add AI response to conversation history
             self.conversation_service.add_message(user_id, "assistant", full_response)
             
-            logger.info(f"Completed streaming response for user {user_id} (length: {len(full_response)}, chunks: {chunk_count})")
+            logger.info(f"Completed real-time streaming for user {user_id} (length: {len(full_response)}, sent {sent_chunks} chunks to LINE)")
             
             return {
                 'success': True,
                 'message': full_response,
                 'tokens_used': total_tokens,
                 'streaming': True,
-                'chunks_received': chunk_count
+                'chunks_received': chunk_count,
+                'chunks_sent': sent_chunks
             }
+            
+        except Exception as e:
+            logger.error(f"Streaming API error for user {user_id}: {str(e)}")
+            raise e
+
+    def _should_send_chunk(self, current_text, chunk_count):
+        """Determine if current chunk should be sent to LINE"""
+        # Send chunk if:
+        # 1. We have at least 50 characters
+        # 2. We hit a sentence boundary (. ! ?)
+        # 3. We have 15+ chunks accumulated (prevents too much delay)
+        
+        if len(current_text) >= 50:
+            # Check for sentence boundaries
+            if any(current_text.rstrip().endswith(punct) for punct in ['.', '!', '?', ':', '\n']):
+                return True
+        
+        # Send if we have accumulated too many chunks (prevent long delays)
+        if chunk_count % 15 == 0 and len(current_text) >= 30:
+            return True
+            
+        # Send if chunk is getting too long
+        if len(current_text) >= 120:
+            return True
+            
+        return False
+
+    def _get_streaming_response(self, user_id, messages):
+        """Get streaming response from OpenAI (fallback for non-callback usage)"""
+        try:
+            # Use the callback version without callback for backward compatibility
+            return self.get_streaming_response_with_callback(user_id, messages, chunk_callback=None)
             
         except Exception as e:
             logger.error(f"Streaming API error for user {user_id}: {str(e)}")

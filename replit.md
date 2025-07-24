@@ -7,7 +7,7 @@ This is a LINE Bot MVP application that provides conversational AI capabilities 
 **Production**: https://line-bot-connect-tkhongsap.replit.app/webhook  
 **Azure OpenAI**: Connected and tested successfully with GPT-4.1 + streaming  
 **LINE Integration**: Webhook verified and active  
-**Performance**: Streaming responses with intelligent formatting and context preservation  
+**Performance**: Real-time LINE frontend streaming with progressive message delivery and context preservation  
 **Last Updated**: July 24, 2025
 
 # User Preferences
