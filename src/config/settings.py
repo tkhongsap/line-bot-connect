@@ -35,15 +35,6 @@ class Settings:
     
     def _validate_settings(self):
         """Validate that required environment variables are set"""
-        # Set default values if not provided (for demo purposes)
-        if not self.LINE_CHANNEL_ACCESS_TOKEN:
-            self.LINE_CHANNEL_ACCESS_TOKEN = "JONXjpaqG/G6wOjwzhQry/mCWjSK4/nBQbuiwZ6ueH+Ry3drttiVcVZYiz2GlS0eUZqd5/G4SpfnQSoRXgg0tcdww6YPJm1vTUy4InLkeYWzRgGAfCumG0nnDcNa7lL6RINHfyqVzSAyZRmOKJ4wcQdB04t89/1O/w1cDnyilFU="
-        
-        if not self.LINE_CHANNEL_SECRET:
-            self.LINE_CHANNEL_SECRET = "b7cfa8eef4243c0f44491d8a37d73be8"
-            
-        if not self.AZURE_OPENAI_API_KEY:
-            self.AZURE_OPENAI_API_KEY = "demo-key-needs-replacement"
         
         required_settings = [
             ("LINE_CHANNEL_ACCESS_TOKEN", self.LINE_CHANNEL_ACCESS_TOKEN),
