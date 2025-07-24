@@ -1,0 +1,160 @@
+/* Custom styles for LINE Bot Dashboard */
+
+/* Ensure proper dark theme consistency */
+body {
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+}
+
+/* Card hover effects */
+.card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    border: 1px solid var(--bs-border-color);
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Status indicators */
+.badge {
+    font-size: 0.75rem;
+}
+
+/* Code blocks */
+pre {
+    font-size: 0.875rem;
+    border: 1px solid var(--bs-border-color);
+}
+
+code {
+    background-color: var(--bs-secondary-bg);
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+}
+
+/* Button improvements */
+.btn {
+    transition: all 0.2s ease-in-out;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+/* Input group styling */
+.input-group .form-control {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+
+.input-group .form-control:focus {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-primary);
+    color: var(--bs-body-color);
+    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+/* Table styling */
+.table {
+    --bs-table-bg: transparent;
+}
+
+.table-responsive {
+    border-radius: 0.375rem;
+    border: 1px solid var(--bs-border-color);
+}
+
+/* List group styling */
+.list-group-item {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+
+/* Icons */
+.fa-robot {
+    color: var(--bs-primary);
+}
+
+.fa-check-circle {
+    color: var(--bs-success);
+}
+
+.fa-users {
+    color: var(--bs-info);
+}
+
+.fa-comments {
+    color: var(--bs-warning);
+}
+
+.fa-brain {
+    color: var(--bs-primary);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .display-6 {
+        font-size: 1.75rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .btn {
+        font-size: 0.875rem;
+    }
+}
+
+/* Loading states */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Animation for refresh button */
+.btn .fa-sync-alt {
+    transition: transform 0.5s ease-in-out;
+}
+
+.btn:active .fa-sync-alt {
+    transform: rotate(360deg);
+}
+
+/* Success/error states */
+.text-success {
+    color: var(--bs-success) !important;
+}
+
+.text-danger {
+    color: var(--bs-danger) !important;
+}
+
+.text-warning {
+    color: var(--bs-warning) !important;
+}
+
+.text-info {
+    color: var(--bs-info) !important;
+}
+
+/* Custom spacing */
+.mt-4 {
+    margin-top: 1.5rem !important;
+}
+
+.mb-4 {
+    margin-bottom: 1.5rem !important;
+}
+
+/* Footer styling */
+footer {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--bs-border-color);
+}

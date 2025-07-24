@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LINE Bot Dashboard - D&T Bot MVP</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="display-6 mb-2">
+                    <i class="fas fa-robot text-primary"></i>
+                    LINE Bot Dashboard
+                </h1>
+                <p class="lead text-muted">D&T Bot MVP - Azure OpenAI Integration</p>
+            </div>
+        </div>
+
+        <!-- Status Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3 mb-3">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                        <h6 class="card-title">Service Status</h6>
+                        <span class="badge bg-success">Active</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-users fa-2x text-info mb-2"></i>
+                        <h6 class="card-title">Total Users</h6>
+                        <span class="badge bg-info" id="user-count">{{ total_users }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-comments fa-2x text-warning mb-2"></i>
+                        <h6 class="card-title">Active Chats</h6>
+                        <span class="badge bg-warning" id="chat-count">-</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-brain fa-2x text-primary mb-2"></i>
+                        <h6 class="card-title">AI Model</h6>
+                        <small class="text-muted">GPT-4.1-mini</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Webhook Configuration -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-link"></i>
+                            Webhook Configuration
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <label class="form-label">Webhook URL (Copy this to LINE Developer Console)</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" value="{{ webhook_url }}" id="webhook-url" readonly>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="copyWebhookUrl()">
+                                        <i class="fas fa-copy"></i> Copy
+                                    </button>
+                                </div>
+                                <small class="form-text text-muted">
+                                    Register this URL in your LINE Developer Console → Messaging API → Webhook URL
+                                </small>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button class="btn btn-primary" onclick="testWebhook()">
+                                    <i class="fas fa-check"></i> Test Webhook
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LINE Setup Instructions -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-cog"></i>
+                            LINE Official Account Setup
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-1"></i> Required Environment Variables</h6>
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item">
+                                        <code>LINE_CHANNEL_ACCESS_TOKEN</code>
+                                        <span id="token-status" class="badge bg-secondary ms-2">-</span>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <code>LINE_CHANNEL_SECRET</code>
+                                        <span id="secret-status" class="badge bg-secondary ms-2">-</span>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <code>AZURE_OPENAI_API_KEY</code>
+                                        <span id="openai-status" class="badge bg-secondary ms-2">-</span>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-2"></i> LINE Developer Console Steps</h6>
+                                <ol class="list-group list-group-numbered">
+                                    <li class="list-group-item">Create LINE Official Account</li>
+                                    <li class="list-group-item">Enable Messaging API</li>
+                                    <li class="list-group-item">Get Channel credentials</li>
+                                    <li class="list-group-item">Set webhook URL above</li>
+                                    <li class="list-group-item">Enable webhook, disable auto-reply</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-time Activity -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-chart-line"></i>
+                            Real-time Activity
+                        </h5>
+                        <button class="btn btn-sm btn-outline-primary" onclick="refreshStats()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="activity-content">
+                            <p class="text-muted text-center">Loading activity data...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Testing -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-flask"></i>
+                            API Testing
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <button class="btn btn-outline-success w-100" onclick="testHealth()">
+                                    <i class="fas fa-heartbeat"></i> Test Health Check
+                                </button>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <button class="btn btn-outline-info w-100" onclick="testOpenAI()">
+                                    <i class="fas fa-brain"></i> Test Azure OpenAI
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <pre id="test-results" class="bg-dark text-light p-3 rounded" style="display: none; max-height: 300px; overflow-y: auto;"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="row">
+            <div class="col text-center">
+                <small class="text-muted">
+                    D&T Bot MVP - Powered by Azure OpenAI GPT-4.1-mini
+                    <br>
+                    <a href="/health" class="text-decoration-none">Health Check</a> |
+                    <a href="/conversations" class="text-decoration-none">Conversations API</a>
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Copy webhook URL to clipboard
+        function copyWebhookUrl() {
+            const webhookUrl = document.getElementById('webhook-url');
+            webhookUrl.select();
+            document.execCommand('copy');
+            
+            // Show temporary feedback
+            const button = webhookUrl.nextElementSibling;
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            button.classList.add('btn-success');
+            
+            setTimeout(() => {
+                button.innerHTML = originalText;
+                button.classList.remove('btn-success');
+            }, 2000);
+        }
+
+        // Test webhook endpoint
+        function testWebhook() {
+            fetch('/webhook')
+                .then(response => response.text())
+                .then(data => {
+                    showTestResult(`Webhook test successful: ${data}`);
+                })
+                .catch(error => {
+                    showTestResult(`Webhook test failed: ${error}`);
+                });
+        }
+
+        // Test health endpoint
+        function testHealth() {
+            fetch('/health')
+                .then(response => response.json())
+                .then(data => {
+                    showTestResult(`Health check successful:\n${JSON.stringify(data, null, 2)}`);
+                })
+                .catch(error => {
+                    showTestResult(`Health check failed: ${error}`);
+                });
+        }
+
+        // Test OpenAI connection (placeholder - would need backend endpoint)
+        function testOpenAI() {
+            showTestResult('OpenAI test would require a dedicated test endpoint. Check logs for actual OpenAI connectivity.');
+        }
+
+        // Show test results
+        function showTestResult(message) {
+            const resultsElement = document.getElementById('test-results');
+            resultsElement.textContent = message;
+            resultsElement.style.display = 'block';
+        }
+
+        // Refresh statistics
+        function refreshStats() {
+            // Update user count
+            fetch('/health')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('user-count').textContent = data.total_conversations || 0;
+                })
+                .catch(console.error);
+
+            // Update conversations
+            fetch('/conversations')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('chat-count').textContent = data.total_users || 0;
+                    updateActivityDisplay(data);
+                })
+                .catch(console.error);
+        }
+
+        // Update activity display
+        function updateActivityDisplay(data) {
+            const activityContent = document.getElementById('activity-content');
+            
+            if (data.active_conversations && data.active_conversations.length > 0) {
+                let html = '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>User ID</th><th>Messages</th><th>Last Activity</th></tr></thead><tbody>';
+                
+                data.active_conversations.forEach(conv => {
+                    html += `<tr>
+                        <td><code>${conv.user_id}</code></td>
+                        <td><span class="badge bg-secondary">${conv.message_count}</span></td>
+                        <td><small class="text-muted">${conv.last_activity}</small></td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table></div>';
+                activityContent.innerHTML = html;
+            } else {
+                activityContent.innerHTML = '<p class="text-muted text-center">No active conversations yet. Start chatting with your LINE bot!</p>';
+            }
+        }
+
+        // Check environment variables status (placeholder)
+        function checkEnvStatus() {
+            // This would require backend endpoints to safely check env vars
+            // For now, just show that they need to be configured
+            document.getElementById('token-status').textContent = 'Check Required';
+            document.getElementById('secret-status').textContent = 'Check Required';
+            document.getElementById('openai-status').textContent = 'Check Required';
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshStats();
+            checkEnvStatus();
+            
+            // Auto-refresh every 30 seconds
+            setInterval(refreshStats, 30000);
+        });
+    </script>
+</body>
+</html>
