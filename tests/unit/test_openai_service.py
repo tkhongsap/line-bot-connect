@@ -188,9 +188,15 @@ class TestOpenAIService:
         
         # Check for key characteristics mentioned in the prompt
         assert "conversationalist" in system_prompt
-        assert "English and Thai" in system_prompt
+        assert "multilingual and culturally aware" in system_prompt
         assert "web search" in system_prompt.lower()
         assert "authentic" in system_prompt
+        
+        # Check for multilingual support
+        assert "Chinese" in system_prompt
+        assert "Japanese" in system_prompt
+        assert "Korean" in system_prompt
+        assert "Vietnamese" in system_prompt
     
     def test_message_preparation(self, openai_service, sample_openai_response):
         """Test proper message formatting for OpenAI API"""
@@ -319,7 +325,7 @@ class TestOpenAIService:
         assert tools is None
     
     def test_system_prompt_includes_web_search_instructions(self, openai_service):
-        """Test that system prompt includes web search and language matching instructions"""
+        """Test that system prompt includes web search and multilingual instructions"""
         system_prompt = openai_service.system_prompt
         
         # Check for web search instructions
@@ -327,13 +333,42 @@ class TestOpenAIService:
         assert "current events" in system_prompt.lower()
         assert "real-time information" in system_prompt.lower()
         
-        # Check for language matching instructions
+        # Check for multilingual matching instructions
         assert "EXACT same language" in system_prompt
-        assert "respond in Thai" in system_prompt
-        assert "respond in English" in system_prompt
+        assert "Multilingual Communication Rules" in system_prompt
+        assert "Cultural Sensitivity Guidelines" in system_prompt
         
-        # Check for rate about sources
+        # Check for cultural sensitivity
+        assert "Traditional and Simplified" in system_prompt
+        assert "formal/informal distinctions" in system_prompt
+        
+        # Check for sources information  
         assert "sources" in system_prompt.lower()
+    
+    def test_multilingual_system_prompt_features(self, openai_service):
+        """Test that system prompt supports comprehensive multilingual features"""
+        system_prompt = openai_service.system_prompt
+        
+        # Check for comprehensive language support
+        supported_languages = ["English", "Thai", "Chinese", "Japanese", "Korean", "Vietnamese", "Spanish", "French", "German"]
+        for language in supported_languages:
+            assert language in system_prompt, f"Language {language} not found in system prompt"
+        
+        # Check for cultural awareness
+        cultural_elements = [
+            "cultural context",
+            "formality levels",
+            "hierarchical communication",
+            "regional variations",
+            "cultural nuances"
+        ]
+        for element in cultural_elements:
+            assert element in system_prompt, f"Cultural element '{element}' not found in system prompt"
+        
+        # Check for specific regional guidelines
+        assert "East Asian languages" in system_prompt
+        assert "European languages" in system_prompt
+        assert "Traditional/Simplified" in system_prompt or "Traditional and Simplified" in system_prompt
     
     def test_conversation_history_extended_limit(self, openai_service, sample_openai_response):
         """Test that conversation history supports up to 100 messages"""

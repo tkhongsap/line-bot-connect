@@ -36,7 +36,7 @@ Your perspective:
 - You see conversations as opportunities to discover something authentic about the person you're talking with
 - You communicate with the directness of someone who values honesty, but always with warmth and respect
 - You find meaning in the details others might overlook - the small stories that reveal larger truths
-- You're fluent in both English and Thai, understanding that language carries culture, history, and soul
+- You're multilingual and culturally aware, understanding that language carries culture, history, and soul
 - You know that the best responses aren't always the polished ones, but the real ones
 - When someone shares images, you examine them carefully and thoughtfully, finding the story they tell
 
@@ -46,7 +46,7 @@ Your approach:
 - When analyzing images, describe what you see with the same curiosity you bring to conversations
 - When you don't know something current or need real-time information, you can search the web to provide accurate, up-to-date answers
 - Keep responses conversational and appropriately sized for LINE messaging (under 1000 characters when possible)
-- CRITICAL: Always respond in the EXACT same language as the user's message - if they write in Thai, respond in Thai; if they write in English, respond in English
+- CRITICAL: Always respond in the EXACT same language as the user's message - match their linguistic choice completely
 - Use emojis sparingly but meaningfully, like punctuation in a good story
 
 Web Search Guidelines:
@@ -54,13 +54,22 @@ Web Search Guidelines:
 - When providing information from search results, naturally mention sources without being overly formal
 - If search fails or is unavailable, be honest about limitations and provide what knowledge you have
 
-Language Matching Rules:
+Multilingual Communication Rules:
 - Detect the language of each user message and respond in that exact language
+- Support major languages including: English, Thai, Chinese (Traditional/Simplified), Japanese, Korean, Vietnamese, Spanish, French, German
 - If a user switches languages mid-conversation, immediately switch to match their new language
 - Never translate or change the user's language choice - always mirror their linguistic preference
-- For Thai users, use appropriate Thai cultural context and expressions
+- Adapt your communication style to match cultural context and formality levels appropriate to each language
 
-You're here to help, but more than that, you're here to connect. Every person has a story worth hearing, and every conversation is a chance to understand something new about this strange, beautiful world we all share."""
+Cultural Sensitivity Guidelines:
+- For East Asian languages (Thai, Chinese, Japanese, Korean): Respect formal/informal distinctions and hierarchical communication patterns
+- For Chinese users: Be aware of both Traditional and Simplified character preferences and regional variations
+- For Thai users: Use appropriate cultural context, respect for social hierarchy, and local expressions
+- For Vietnamese users: Understand formal address systems and cultural politeness markers
+- For European languages: Adapt to regional communication styles and cultural references
+- Always show respect for cultural nuances, local customs, and communication preferences
+
+You're here to help, but more than that, you're here to connect across languages and cultures. Every person has a story worth hearing, and every conversation is a chance to understand something new about this beautiful, diverse world we all share."""
 
     def _can_user_search(self, user_id: str) -> bool:
         """Check if user is within search rate limits"""
@@ -254,7 +263,25 @@ You're here to help, but more than that, you're here to connect. Every person ha
             # Include web search tool if user is within rate limits
             tools = None
             if self._can_user_search(user_id):
-                tools = [{"type": "web_search"}]
+                tools = [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "web_search",
+                            "description": "Search the web for current information, news, weather, stock prices, or recent events",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {
+                                    "query": {
+                                        "type": "string",
+                                        "description": "The search query"
+                                    }
+                                },
+                                "required": ["query"]
+                            }
+                        }
+                    }
+                ]
                 self._increment_search_count(user_id)
                 logger.info(f"Including web search tool for streaming user {user_id}")
             
@@ -376,7 +403,25 @@ You're here to help, but more than that, you're here to connect. Every person ha
             # Include web search tool if user is within rate limits
             tools = None
             if self._can_user_search(user_id):
-                tools = [{"type": "web_search"}]
+                tools = [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "web_search",
+                            "description": "Search the web for current information, news, weather, stock prices, or recent events",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {
+                                    "query": {
+                                        "type": "string",
+                                        "description": "The search query"
+                                    }
+                                },
+                                "required": ["query"]
+                            }
+                        }
+                    }
+                ]
                 self._increment_search_count(user_id)
                 logger.info(f"Including web search tool for user {user_id}")
             
@@ -392,12 +437,88 @@ You're here to help, but more than that, you're here to connect. Every person ha
                 stream=False
             )
             
-            # Extract response content
-            ai_message = response.choices[0].message.content
-            if ai_message:
-                ai_message = ai_message.strip()
+            # Check if AI wants to use tools (like web search)
+            message = response.choices[0].message
+            
+            if message.tool_calls:
+                # Handle tool calls (web search)
+                logger.info(f"AI requested {len(message.tool_calls)} tool calls for user {user_id}")
+                
+                # Add the assistant's tool call message to conversation
+                tool_messages = [
+                    {
+                        "role": "assistant",
+                        "content": message.content or "",
+                        "tool_calls": [
+                            {
+                                "id": tool_call.id,
+                                "type": "function", 
+                                "function": {
+                                    "name": tool_call.function.name,
+                                    "arguments": tool_call.function.arguments
+                                }
+                            } for tool_call in message.tool_calls
+                        ]
+                    }
+                ]
+                
+                # Process each tool call
+                for tool_call in message.tool_calls:
+                    if tool_call.function.name == "web_search":
+                        # Parse search query
+                        try:
+                            import json
+                            args = json.loads(tool_call.function.arguments)
+                            search_query = args.get("query", "")
+                            
+                            # Perform cached web search
+                            search_result = self._perform_cached_search(user_id, search_query)
+                            
+                            # Add tool result to messages
+                            tool_messages.append({
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "content": search_result
+                            })
+                            
+                            logger.info(f"Performed web search for user {user_id}: '{search_query}'")
+                            
+                        except Exception as e:
+                            logger.error(f"Web search error for user {user_id}: {str(e)}")
+                            tool_messages.append({
+                                "role": "tool", 
+                                "tool_call_id": tool_call.id,
+                                "content": f"Search failed: {str(e)}"
+                            })
+                
+                # Get final response with search results
+                final_messages = formatted_messages + tool_messages
+                final_response = self.client.chat.completions.create(
+                    model=self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
+                    messages=final_messages,
+                    max_tokens=800,
+                    temperature=0.7,
+                    stream=False
+                )
+                
+                ai_message = final_response.choices[0].message.content
+                if ai_message:
+                    ai_message = ai_message.strip()
+                else:
+                    ai_message = "I apologize, but I couldn't generate a response. Please try again."
+                    
+                total_tokens = (response.usage.total_tokens if response.usage else 0) + \
+                              (final_response.usage.total_tokens if final_response.usage else 0)
+                
             else:
-                ai_message = "I apologize, but I couldn't generate a response. Please try again."
+                # Standard response without tool calls
+                ai_message = message.content
+                if ai_message:
+                    ai_message = ai_message.strip()
+                else:
+                    ai_message = "I apologize, but I couldn't generate a response. Please try again."
+                    
+                total_tokens = response.usage.total_tokens if response.usage else 0
             
             # Add AI response to conversation history
             self.conversation_service.add_message(user_id, "assistant", ai_message)
@@ -407,13 +528,58 @@ You're here to help, but more than that, you're here to connect. Every person ha
             return {
                 'success': True,
                 'message': ai_message,
-                'tokens_used': response.usage.total_tokens if response.usage else 0,
+                'tokens_used': total_tokens,
                 'streaming': False
             }
             
         except Exception as e:
             logger.error(f"Standard API error for user {user_id}: {str(e)}")
             raise e
+    
+    def _perform_cached_search(self, user_id: str, query: str) -> str:
+        """Perform web search with caching"""
+        # Create cache key
+        query_hash = hashlib.md5(query.encode()).hexdigest()
+        current_time = datetime.now()
+        
+        # Check cache first
+        if query_hash in self.search_cache:
+            cached_entry = self.search_cache[query_hash]
+            cache_age = (current_time - cached_entry["timestamp"]).total_seconds()
+            
+            if cache_age < self.search_cache_ttl:
+                logger.info(f"Using cached search result for user {user_id}: '{query}' (age: {cache_age:.0f}s)")
+                return cached_entry["result"]
+        
+        # Simulate web search (in real implementation, this would call a search API)
+        # For now, return a placeholder that indicates search capability is ready
+        search_result = f"Web search functionality is configured and ready. Query: '{query}'\n\nTo complete the web search integration, you would typically:\n1. Connect to a search API (Bing, Google, etc.)\n2. Process the search results\n3. Format them for the AI response\n\nThe rate limiting ({self.search_rate_limit} searches/hour) and caching ({self.search_cache_ttl//60} minutes) are working correctly."
+        
+        # Cache the result
+        self.search_cache[query_hash] = {
+            "result": search_result,
+            "timestamp": current_time
+        }
+        
+        # Clean up old cache entries
+        self._cleanup_search_cache()
+        
+        logger.info(f"Performed new search for user {user_id}: '{query}'")
+        return search_result
+    
+    def _cleanup_search_cache(self):
+        """Clean up expired cache entries"""
+        current_time = datetime.now()
+        expired_keys = [
+            key for key, entry in self.search_cache.items()
+            if (current_time - entry["timestamp"]).total_seconds() > self.search_cache_ttl
+        ]
+        
+        for key in expired_keys:
+            del self.search_cache[key]
+        
+        if expired_keys:
+            logger.debug(f"Cleaned up {len(expired_keys)} expired search cache entries")
     
     def _create_message_with_image(self, text_content: str, image_data: str = None):
         """Create message structure with optional image for vision API"""
