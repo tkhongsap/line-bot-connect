@@ -40,7 +40,7 @@ Response guidelines:
 
 You are representing a sophisticated AI service, so maintain high quality in all interactions."""
 
-    def get_response(self, user_id, user_message):
+    def get_response(self, user_id, user_message, use_streaming=True):
         """Get AI response for user message with conversation context"""
         try:
             # Add user message to conversation history
@@ -60,9 +60,89 @@ You are representing a sophisticated AI service, so maintain high quality in all
                     "content": msg["content"]
                 })
             
-            logger.debug(f"Sending {len(messages)} messages to OpenAI for user {user_id}")
+            logger.debug(f"Sending {len(messages)} messages to OpenAI for user {user_id} (streaming: {use_streaming})")
             
-            # Call Azure OpenAI
+            if use_streaming:
+                return self._get_streaming_response(user_id, messages)
+            else:
+                return self._get_standard_response(user_id, messages)
+                
+        except Exception as e:
+            logger.error(f"OpenAI API error for user {user_id}: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'message': None
+            }
+
+    def _get_streaming_response(self, user_id, messages):
+        """Get streaming response from OpenAI"""
+        try:
+            from typing import cast
+            from openai.types.chat import ChatCompletionMessageParam
+            
+            formatted_messages = cast(list[ChatCompletionMessageParam], messages)
+            
+            # Create streaming request
+            stream = self.client.chat.completions.create(
+                model=self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
+                messages=formatted_messages,
+                max_tokens=800,
+                temperature=0.7,
+                top_p=0.9,
+                frequency_penalty=0.1,
+                presence_penalty=0.1,
+                stream=True
+            )
+            
+            # Collect streaming response
+            full_response = ""
+            total_tokens = 0
+            chunk_count = 0
+            
+            logger.debug(f"Starting streaming response for user {user_id}")
+            
+            for chunk in stream:
+                chunk_count += 1
+                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    full_response += content
+                    
+                    # Log every 10 chunks to track progress
+                    if chunk_count % 10 == 0:
+                        logger.debug(f"Streaming chunk {chunk_count} for user {user_id}: {len(full_response)} chars")
+                
+                # Track token usage if available
+                if hasattr(chunk, 'usage') and chunk.usage:
+                    total_tokens = chunk.usage.total_tokens
+            
+            if full_response:
+                full_response = full_response.strip()
+            else:
+                full_response = "I apologize, but I couldn't generate a response. Please try again."
+            
+            # Add AI response to conversation history
+            self.conversation_service.add_message(user_id, "assistant", full_response)
+            
+            logger.info(f"Completed streaming response for user {user_id} (length: {len(full_response)}, chunks: {chunk_count})")
+            
+            return {
+                'success': True,
+                'message': full_response,
+                'tokens_used': total_tokens,
+                'streaming': True,
+                'chunks_received': chunk_count
+            }
+            
+        except Exception as e:
+            logger.error(f"Streaming API error for user {user_id}: {str(e)}")
+            # Fallback to standard response
+            logger.info(f"Falling back to standard response for user {user_id}")
+            return self._get_standard_response(user_id, messages)
+
+    def _get_standard_response(self, user_id, messages):
+        """Get standard (non-streaming) response from OpenAI"""
+        try:
             from typing import cast
             from openai.types.chat import ChatCompletionMessageParam
             
@@ -70,11 +150,12 @@ You are representing a sophisticated AI service, so maintain high quality in all
             response = self.client.chat.completions.create(
                 model=self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
                 messages=formatted_messages,
-                max_tokens=800,  # Reasonable limit for LINE responses
+                max_tokens=800,
                 temperature=0.7,
                 top_p=0.9,
                 frequency_penalty=0.1,
-                presence_penalty=0.1
+                presence_penalty=0.1,
+                stream=False
             )
             
             # Extract response content
@@ -87,21 +168,18 @@ You are representing a sophisticated AI service, so maintain high quality in all
             # Add AI response to conversation history
             self.conversation_service.add_message(user_id, "assistant", ai_message)
             
-            logger.info(f"Generated response for user {user_id} (length: {len(ai_message)})")
+            logger.info(f"Generated standard response for user {user_id} (length: {len(ai_message)})")
             
             return {
                 'success': True,
                 'message': ai_message,
-                'tokens_used': response.usage.total_tokens if response.usage else 0
+                'tokens_used': response.usage.total_tokens if response.usage else 0,
+                'streaming': False
             }
             
         except Exception as e:
-            logger.error(f"OpenAI API error for user {user_id}: {str(e)}")
-            return {
-                'success': False,
-                'error': str(e),
-                'message': None
-            }
+            logger.error(f"Standard API error for user {user_id}: {str(e)}")
+            raise e
     
     def test_connection(self):
         """Test Azure OpenAI connection"""

@@ -70,20 +70,37 @@ class LineService:
             return False
     
     def _handle_text_message(self, event):
-        """Handle incoming text message from LINE user"""
+        """Handle incoming text message from LINE user with streaming support"""
         try:
             user_id = event.source.user_id
             user_message = event.message.text
             
             logger.info(f"Received message from user {user_id}: {user_message}")
             
-            # Get AI response
-            ai_response = self.openai_service.get_response(user_id, user_message)
+            # Show typing indicator while processing (optional)
+            try:
+                self._show_typing_indicator(user_id)
+            except Exception as e:
+                logger.debug(f"Could not show typing indicator: {e}")
+            
+            # Get AI response with streaming
+            ai_response = self.openai_service.get_response(user_id, user_message, use_streaming=True)
             
             if ai_response['success']:
-                # Send response back to LINE
-                self._send_message(event.reply_token, ai_response['message'])
-                logger.info(f"Sent response to user {user_id}: {ai_response['message'][:100]}...")
+                # Handle response (potentially break into chunks for long responses)
+                response_message = ai_response['message']
+                
+                # Check if response is too long and should be chunked
+                if len(response_message) > 1000:  # 1000 chars threshold
+                    self._send_chunked_response(event.reply_token, response_message)
+                else:
+                    self._send_message(event.reply_token, response_message)
+                
+                # Log response details
+                streaming_info = " (streamed)" if ai_response.get('streaming') else ""
+                tokens_used = ai_response.get('tokens_used', 0)
+                logger.info(f"Sent response to user {user_id}: {response_message[:100]}...{streaming_info} [{tokens_used} tokens]")
+                
             else:
                 # Send error message
                 error_msg = "抱歉，我現在無法回應您的訊息。請稍後再試。\nSorry, I'm unable to respond to your message right now. Please try again later."
@@ -98,6 +115,75 @@ class LineService:
                 self._send_message(event.reply_token, error_msg)
             except:
                 pass  # If we can't even send error message, just log and continue
+
+    def _show_typing_indicator(self, user_id):
+        """Show typing indicator (LINE doesn't have native typing indicators, but we can simulate)"""
+        # Note: LINE doesn't have typing indicators like other platforms
+        # This is a placeholder for future enhancement or push messages
+        pass
+
+    def _send_chunked_response(self, reply_token, message_text):
+        """Send long responses in chunks for better readability"""
+        try:
+            # Split message into chunks at sentence boundaries
+            chunks = self._split_message_intelligently(message_text)
+            
+            if len(chunks) <= 1:
+                # If only one chunk, send normally
+                self._send_message(reply_token, message_text)
+                return
+            
+            # Send first chunk as reply, others as push messages would require user_id
+            # For now, send as single message with better formatting
+            formatted_message = self._format_long_message(message_text)
+            self._send_message(reply_token, formatted_message)
+            
+        except Exception as e:
+            logger.error(f"Error sending chunked response: {e}")
+            # Fallback to regular message
+            self._send_message(reply_token, message_text)
+
+    def _split_message_intelligently(self, text, max_chunk_size=800):
+        """Split message at sentence boundaries for better readability"""
+        if len(text) <= max_chunk_size:
+            return [text]
+        
+        chunks = []
+        current_chunk = ""
+        
+        # Split by sentences (look for . ! ? followed by space or end)
+        import re
+        sentences = re.split(r'([.!?]\s+)', text)
+        
+        for i in range(0, len(sentences), 2):
+            sentence = sentences[i]
+            if i + 1 < len(sentences):
+                sentence += sentences[i + 1]  # Add the punctuation back
+            
+            if len(current_chunk + sentence) <= max_chunk_size:
+                current_chunk += sentence
+            else:
+                if current_chunk:
+                    chunks.append(current_chunk.strip())
+                current_chunk = sentence
+        
+        if current_chunk:
+            chunks.append(current_chunk.strip())
+        
+        return chunks
+
+    def _format_long_message(self, text):
+        """Format long messages for better readability"""
+        # Add line breaks for better readability
+        formatted = text.replace('. ', '.\n\n')
+        formatted = formatted.replace('? ', '?\n\n')
+        formatted = formatted.replace('! ', '!\n\n')
+        
+        # Remove excessive line breaks
+        import re
+        formatted = re.sub(r'\n{3,}', '\n\n', formatted)
+        
+        return formatted.strip()
     
     def _send_message(self, reply_token, message_text):
         """Send message back to LINE user"""
