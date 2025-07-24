@@ -31,28 +31,77 @@ Preferred communication style: Simple, everyday language.
 
 ## Core Services
 1. **LineService** (`src/services/line_service.py`)
-   - Handles LINE Bot SDK integration
+   - Handles LINE Bot SDK integration (TextMessage and ImageMessage)
    - Manages webhook signature verification
-   - Processes incoming messages and sends responses
+   - Processes incoming text and image messages
+   - Supports bilingual error handling for image processing
    - Uses LINE Bot SDK Python for API communication
 
 2. **OpenAIService** (`src/services/openai_service.py`)
    - Integrates with Azure OpenAI using the official Python SDK
+   - **NEW**: Vision capabilities with GPT-4 for image understanding
    - Maintains conversation context using system prompts
    - Supports bilingual communication (English/Thai)
    - Implements response length optimization for LINE messaging
+   - Handles both text-only and vision-enabled conversations
 
 3. **ConversationService** (`src/services/conversation_service.py`)
    - Manages in-memory conversation history per user
+   - **NEW**: Tracks image message types alongside text messages
    - Implements conversation limits (100 messages per user, 1000 total conversations)
    - Provides conversation context for AI responses
    - Handles automatic conversation trimming
+
+4. **ImageProcessor** (`src/utils/image_utils.py`)
+   - **NEW**: Downloads images from LINE Bot content API
+   - Validates image formats (JPG, PNG, GIF) and file sizes
+   - Converts images to base64 for GPT-4 vision API
+   - Handles temporary file management with automatic cleanup
+   - Provides image metadata extraction
 
 ## Configuration Management
 - **Settings** (`src/config/settings.py`)
   - Environment variable management with validation
   - Support for LINE credentials and Azure OpenAI configuration
   - Development and production configuration separation
+
+# Recent Changes (January 2024)
+
+## Image Understanding Feature Implementation
+- ✅ **ImageMessage Handler**: Added support for image messages in LINE service
+- ✅ **Vision API Integration**: Extended OpenAI service with GPT-4 vision capabilities
+- ✅ **Image Processing Pipeline**: Created complete image download, validation, and conversion utilities
+- ✅ **Conversation Context**: Enhanced conversation service to track image messages
+- ✅ **Error Handling**: Implemented bilingual error messages for image processing failures
+- ✅ **Automatic Cleanup**: Added proper temporary file management for image processing
+
+## Technical Features Added
+1. **LINE Bot Image Support**
+   - ImageMessage event handler registration
+   - Image download from LINE content API
+   - Privacy-conscious logging (truncated user IDs)
+
+2. **GPT-4 Vision Integration**  
+   - Base64 image encoding for API compatibility
+   - Vision-enabled message format for Azure OpenAI
+   - Mixed conversation context (text + image references)
+
+3. **Image Processing Utilities**
+   - Format validation (JPG, PNG, GIF)
+   - File size limits (10MB max)
+   - Temporary file management with automatic cleanup
+   - Image metadata extraction
+
+4. **Enhanced Conversation Management**
+   - Image message type tracking
+   - Context preservation for follow-up questions about images
+   - Improved conversation history format
+
+## User Experience Improvements
+- Seamless image sharing within existing chat interface
+- Bilingual error messages for unsupported formats
+- Graceful fallback when image processing fails
+- Maintains conversation flow for follow-up questions about imageson
 
 ## Web Interface
 - **Main Application** (`app.py`)

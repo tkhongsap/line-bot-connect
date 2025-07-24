@@ -74,6 +74,74 @@ You're here to help, but more than that, you're here to connect. Every person ha
                 'message': None
             }
 
+    def get_response_with_image(self, user_id, message_id, line_bot_api, accompanying_text="", use_streaming=True):
+        """Get AI response for image message with vision capabilities"""
+        try:
+            from ..utils.image_utils import ImageProcessor
+            
+            # Process the image
+            with ImageProcessor(line_bot_api, message_id) as processor:
+                # Convert image to base64 for API
+                image_base64 = processor.to_base64()
+                image_metadata = processor.get_metadata()
+                
+                logger.info(f"Processing image for user {user_id}: {image_metadata['format']} ({image_metadata['size_bytes']} bytes)")
+                
+                # Create image message context for conversation history
+                image_context = f"[Image sent: {image_metadata['format']} format, {image_metadata['size_bytes']} bytes]"
+                if accompanying_text:
+                    image_context += f" with text: {accompanying_text}"
+                
+                # Add image message to conversation history
+                self.conversation_service.add_message(user_id, "user", image_context, "image")
+                
+                # Get conversation history
+                conversation_history = self.conversation_service.get_conversation_history(user_id)
+                
+                # Prepare messages for OpenAI with vision
+                messages = [{"role": "system", "content": self.system_prompt}]
+                
+                # Add recent conversation history (text only)
+                recent_messages = conversation_history[-10:]  # Limit for vision calls
+                for msg in recent_messages[:-1]:  # Exclude the current image message
+                    messages.append({
+                        "role": msg["role"],
+                        "content": msg["content"]
+                    })
+                
+                # Add the current image message with vision content
+                # For Azure OpenAI vision API, use the correct format
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": accompanying_text if accompanying_text else "What do you see in this image? Please describe it and help me understand what it shows."
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": image_base64
+                            }
+                        }
+                    ]
+                })
+                
+                logger.debug(f"Sending vision request to OpenAI for user {user_id} (streaming: {use_streaming})")
+                
+                if use_streaming:
+                    return self._get_streaming_response(user_id, messages)
+                else:
+                    return self._get_standard_response(user_id, messages)
+                    
+        except Exception as e:
+            logger.error(f"OpenAI Vision API error for user {user_id}: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'message': None
+            }
+
     def get_streaming_response_with_callback(self, user_id, messages, chunk_callback=None):
         """Get streaming response from OpenAI with real-time chunk callback for LINE frontend streaming"""
         try:

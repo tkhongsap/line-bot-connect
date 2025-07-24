@@ -5,7 +5,7 @@ import base64
 import logging
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError, LineBotApiError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +21,14 @@ class LineService:
         self.line_bot_api = LineBotApi(settings.LINE_CHANNEL_ACCESS_TOKEN)
         self.handler = WebhookHandler(settings.LINE_CHANNEL_SECRET)
         
-        # Register message handler
+        # Register message handlers
         @self.handler.add(MessageEvent, message=TextMessage)
         def handle_text_message(event):
             self._handle_text_message(event)
+            
+        @self.handler.add(MessageEvent, message=ImageMessage)
+        def handle_image_message(event):
+            self._handle_image_message(event)
     
     def handle_webhook(self, signature, body):
         """Handle incoming webhook from LINE"""
@@ -106,6 +110,45 @@ class LineService:
 
 
 
+
+    def _handle_image_message(self, event):
+        """Handle incoming image message from LINE user"""
+        try:
+            user_id = event.source.user_id
+            message_id = event.message.id
+            
+            logger.info(f"Received image from user {user_id[:8]}... (message_id: {message_id})")
+            
+            # Process image with OpenAI Vision
+            ai_response = self.openai_service.get_response_with_image(
+                user_id, 
+                message_id, 
+                self.line_bot_api,
+                use_streaming=False
+            )
+            
+            if ai_response['success']:
+                # Send response
+                self._send_message(event.reply_token, ai_response['message'])
+                
+                # Log response details
+                tokens_used = ai_response.get('tokens_used', 0)
+                logger.info(f"Sent image response to user {user_id[:8]}...: {len(ai_response['message'])} chars [{tokens_used} tokens]")
+                
+            else:
+                # Send error message in both languages
+                error_msg = "很抱歉，我無法處理這張圖片。請確認圖片格式正確（JPG、PNG或GIF）並重試。\n\nSorry, I couldn't process this image. Please make sure the image format is correct (JPG, PNG, or GIF) and try again."
+                self._send_message(event.reply_token, error_msg)
+                logger.error(f"Failed to process image: {ai_response['error']}")
+                
+        except Exception as e:
+            logger.error(f"Error handling image message: {str(e)}")
+            # Send generic error message
+            try:
+                error_msg = "處理圖片時發生錯誤，請稍後再試。\nError processing image, please try again later."
+                self._send_message(event.reply_token, error_msg)
+            except:
+                pass  # If we can't even send error message, just log and continue
 
     def _send_message(self, reply_token, message_text):
         """Send message back to LINE user"""
