@@ -248,6 +248,7 @@ class TestWebhookEndpoints:
             assert response.status_code == 200
             mock_handle.assert_called_once()
     
+    @pytest.mark.skip(reason="Flask test client is not thread-safe")
     def test_concurrent_webhook_requests(self, client):
         """Test handling of concurrent webhook requests"""
         import threading
