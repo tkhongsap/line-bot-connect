@@ -1,0 +1,7 @@
+# Add these for HEIC/HEIF image format support (Samsung screenshots)
+pillow-heif>=0.10.1
+pyheif>=0.7.1
+
+# Add these for modern mobile image formats
+pillow-avif-plugin>=1.4.0  # AVIF support (modern Android devices)
+pillow-jxl-plugin>=0.2.0   # JPEG XL support (emerging format) 

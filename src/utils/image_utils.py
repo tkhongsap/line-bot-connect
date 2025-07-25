@@ -8,6 +8,37 @@ from typing import Dict, Optional, Tuple
 from PIL import Image
 import io
 
+# Enable comprehensive mobile image format support
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+    logger = logging.getLogger(__name__)
+    logger.info("HEIC/HEIF image format support enabled")
+except ImportError:
+    logger = logging.getLogger(__name__)
+    logger.warning("HEIC/HEIF support not available - install pillow-heif for Samsung screenshot support")
+except Exception as e:
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Error enabling HEIC/HEIF support: {e}")
+
+# Enable AVIF support (modern Android devices)
+try:
+    from pillow_avif import AvifImagePlugin
+    logger.info("AVIF image format support enabled")
+except ImportError:
+    logger.warning("AVIF support not available - install pillow-avif-plugin for modern Android support")
+except Exception as e:
+    logger.warning(f"Error enabling AVIF support: {e}")
+
+# Enable JPEG XL support (emerging format)
+try:
+    from pillow_jxl import JxlImagePlugin
+    logger.info("JPEG XL image format support enabled")
+except ImportError:
+    logger.warning("JPEG XL support not available - install pillow-jxl-plugin for cutting-edge format support")
+except Exception as e:
+    logger.warning(f"Error enabling JPEG XL support: {e}")
+
 logger = logging.getLogger(__name__)
 
 class TimeoutError(Exception):
@@ -21,13 +52,14 @@ def timeout_handler(signum, frame):
 class ImageProcessor:
     """Handles image download, processing, and cleanup for LINE Bot integration"""
     
-    # Supported image formats
-    SUPPORTED_FORMATS = {'JPEG', 'PNG', 'GIF', 'WEBP'}
-    SUPPORTED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+    # Supported image formats (comprehensive mobile device support)
+    SUPPORTED_FORMATS = {'JPEG', 'PNG', 'GIF', 'WEBP', 'HEIC', 'HEIF', 'BMP', 'TIFF', 'AVIF', 'JXL', 'ICO'}
+    SUPPORTED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif', '.bmp', '.tiff', '.tif', '.avif', '.jxl', '.ico'}
     
-    # Size limits (10MB max for LINE, 5MB recommended for Azure OpenAI)
-    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB in bytes
-    MAX_DIMENSION = 2048  # Max width/height for processing
+    # Size limits (optimized for mobile screenshots)
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB for mobile screenshots (increased from 5MB)
+    MAX_DIMENSION = 4096  # 4K resolution support for high-DPI mobile screens
+    MOBILE_DIMENSION_THRESHOLD = 2048  # Threshold for aggressive mobile optimization
     
     def __init__(self):
         self.temp_files = []  # Track temporary files for cleanup
@@ -69,7 +101,7 @@ class ImageProcessor:
                 logger.warning(f"Image too large: {len(image_data)} bytes > {self.MAX_FILE_SIZE}")
                 return {
                     'success': False,
-                    'error': 'Image file too large (max 5MB)',
+                    'error': 'Image file too large (max 10MB)',
                     'error_code': 'FILE_TOO_LARGE'
                 }
             
@@ -141,12 +173,19 @@ class ImageProcessor:
     def _create_temp_file(self, image_data: bytes, image_format: str) -> str:
         """Create temporary file for image data"""
         try:
-            # Determine file extension
+            # Determine file extension (comprehensive mobile support)
             ext_map = {
                 'JPEG': '.jpg',
                 'PNG': '.png', 
                 'GIF': '.gif',
-                'WEBP': '.webp'
+                'WEBP': '.webp',
+                'HEIC': '.heic',
+                'HEIF': '.heif',
+                'BMP': '.bmp',
+                'TIFF': '.tiff',
+                'AVIF': '.avif',
+                'JXL': '.jxl',
+                'ICO': '.ico'
             }
             extension = ext_map.get(image_format, '.jpg')
             
@@ -173,12 +212,19 @@ class ImageProcessor:
             # Convert to base64
             base64_string = base64.b64encode(image_data).decode('utf-8')
             
-            # Create data URL format for OpenAI API
+            # Create data URL format for OpenAI API (comprehensive mobile support)
             mime_type_map = {
                 'JPEG': 'image/jpeg',
                 'PNG': 'image/png',
                 'GIF': 'image/gif',
-                'WEBP': 'image/webp'
+                'WEBP': 'image/webp',
+                'HEIC': 'image/heic',
+                'HEIF': 'image/heif',
+                'BMP': 'image/bmp',
+                'TIFF': 'image/tiff',
+                'AVIF': 'image/avif',
+                'JXL': 'image/jxl',
+                'ICO': 'image/x-icon'
             }
             mime_type = mime_type_map.get(image_format, 'image/jpeg')
             
@@ -191,7 +237,7 @@ class ImageProcessor:
     
     def preprocess_image_if_needed(self, image_data: bytes, max_dimension: int = None) -> bytes:
         """
-        Preprocess image if it exceeds size limits
+        Preprocess image if it exceeds size limits (optimized for mobile screenshots)
         
         Args:
             image_data: Original image data
@@ -205,12 +251,24 @@ class ImageProcessor:
             
         try:
             image = Image.open(io.BytesIO(image_data))
+            
+            # MOBILE OPTIMIZATION: Correct orientation from EXIF data
+            image = self._correct_image_orientation(image)
+            
             width, height = image.size
             
             # Check if resizing is needed
             if width <= max_dimension and height <= max_dimension:
-                logger.debug("Image dimensions within limits, no preprocessing needed")
-                return image_data
+                # Even if dimensions are OK, we might need to save with corrected orientation
+                if hasattr(image, '_getexif') and image.getexif().get(274, 1) != 1:
+                    logger.debug("Saving image with corrected orientation")
+                    output_buffer = io.BytesIO()
+                    save_format = image.format if image.format in {'JPEG', 'PNG', 'WEBP'} else 'JPEG'
+                    image.save(output_buffer, format=save_format, quality=90, optimize=True)
+                    return output_buffer.getvalue()
+                else:
+                    logger.debug("Image dimensions within limits, no preprocessing needed")
+                    return image_data
             
             # Calculate new dimensions maintaining aspect ratio
             if width > height:
@@ -220,26 +278,158 @@ class ImageProcessor:
                 new_height = max_dimension
                 new_width = int((width * max_dimension) / height)
             
-            # Resize image
+            # Resize image with high quality resampling
             resized_image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
             
-            # Save to bytes
+            # Save to bytes with mobile-optimized settings
             output_buffer = io.BytesIO()
-            # Preserve original format, default to JPEG for unsupported formats
-            save_format = image.format if image.format in {'JPEG', 'PNG'} else 'JPEG'
-            resized_image.save(output_buffer, format=save_format, quality=85, optimize=True)
+            
+            # MOBILE OPTIMIZATION: Better format preservation and quality
+            if image.format in {'JPEG', 'HEIC', 'HEIF'}:
+                save_format = 'JPEG'
+                quality = 85
+            elif image.format in {'PNG', 'TIFF', 'BMP'}:
+                save_format = 'PNG'
+                quality = 90
+            elif image.format == 'WEBP':
+                save_format = 'WEBP'
+                quality = 80
+            else:
+                save_format = 'JPEG'
+                quality = 85
+            
+            resized_image.save(output_buffer, format=save_format, quality=quality, optimize=True)
             
             processed_data = output_buffer.getvalue()
             
-            logger.info(f"Resized image from {width}x{height} to {new_width}x{new_height}, "
+            logger.info(f"Mobile-optimized: Resized image from {width}x{height} to {new_width}x{new_height}, "
                        f"size reduced from {len(image_data)} to {len(processed_data)} bytes")
             
             return processed_data
             
         except Exception as e:
-            logger.error(f"Error preprocessing image: {str(e)}")
+            logger.error(f"Error preprocessing mobile image: {str(e)}")
             # Return original data if preprocessing fails
             return image_data
+    
+    def optimize_mobile_screenshot(self, image_data: bytes) -> bytes:
+        """
+        Aggressively optimize mobile screenshots for API processing
+        
+        Args:
+            image_data: Original mobile screenshot data
+            
+        Returns:
+            Optimized image data suitable for AI processing
+        """
+        try:
+            image = Image.open(io.BytesIO(image_data))
+            
+            # Correct orientation first
+            image = self._correct_image_orientation(image)
+            
+            width, height = image.size
+            original_size = len(image_data)
+            
+            # Check if this looks like a mobile screenshot (high resolution)
+            is_mobile_screenshot = (
+                width > self.MOBILE_DIMENSION_THRESHOLD or 
+                height > self.MOBILE_DIMENSION_THRESHOLD or 
+                original_size > 3 * 1024 * 1024  # > 3MB
+            )
+            
+            if not is_mobile_screenshot:
+                # Use regular preprocessing for smaller images
+                return self.preprocess_image_if_needed(image_data)
+            
+            logger.info(f"Mobile screenshot detected: {width}x{height}, {original_size/1024/1024:.1f}MB")
+            
+            # Aggressive mobile optimization
+            target_dimension = min(self.MAX_DIMENSION, 2048)  # Cap at 2048 for mobile
+            
+            if width > target_dimension or height > target_dimension:
+                # Calculate new dimensions
+                if width > height:
+                    new_width = target_dimension
+                    new_height = int((height * target_dimension) / width)
+                else:
+                    new_height = target_dimension
+                    new_width = int((width * target_dimension) / height)
+                
+                # Resize with high-quality resampling
+                image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                logger.info(f"Mobile screenshot resized to: {new_width}x{new_height}")
+            
+            # Convert to RGB if necessary (for JPEG compression)
+            if image.mode in ('RGBA', 'LA', 'P'):
+                background = Image.new('RGB', image.size, (255, 255, 255))
+                if image.mode == 'P':
+                    image = image.convert('RGBA')
+                background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+                image = background
+            
+            # Save with mobile-optimized settings
+            output_buffer = io.BytesIO()
+            
+            # Use JPEG for mobile screenshots to reduce file size
+            image.save(output_buffer, format='JPEG', quality=80, optimize=True, progressive=True)
+            
+            optimized_data = output_buffer.getvalue()
+            compression_ratio = original_size / len(optimized_data)
+            
+            logger.info(f"Mobile screenshot optimized: {original_size/1024/1024:.1f}MB → {len(optimized_data)/1024/1024:.1f}MB "
+                       f"(compression: {compression_ratio:.1f}x)")
+            
+            return optimized_data
+            
+        except Exception as e:
+            logger.error(f"Error optimizing mobile screenshot: {str(e)}")
+            # Fallback to regular preprocessing
+            return self.preprocess_image_if_needed(image_data)
+    
+    def _correct_image_orientation(self, image):
+        """
+        Correct image orientation based on EXIF data (important for mobile photos)
+        
+        Args:
+            image: PIL Image object
+            
+        Returns:
+            PIL Image object with corrected orientation
+        """
+        try:
+            # Get EXIF data
+            exif = image.getexif()
+            
+            # EXIF orientation tag is 274
+            orientation = exif.get(274, 1)
+            
+            # Apply rotation based on orientation
+            if orientation == 2:
+                image = image.transpose(Image.FLIP_LEFT_RIGHT)
+            elif orientation == 3:
+                image = image.rotate(180, expand=True)
+            elif orientation == 4:
+                image = image.transpose(Image.FLIP_TOP_BOTTOM)
+            elif orientation == 5:
+                image = image.transpose(Image.FLIP_LEFT_RIGHT).rotate(90, expand=True)
+            elif orientation == 6:
+                image = image.rotate(270, expand=True)
+            elif orientation == 7:
+                image = image.transpose(Image.FLIP_LEFT_RIGHT).rotate(270, expand=True)
+            elif orientation == 8:
+                image = image.rotate(90, expand=True)
+            
+            # Remove EXIF data to avoid issues and reduce file size
+            if hasattr(image, '_getexif'):
+                image = image.copy()
+                
+            logger.debug(f"Corrected image orientation from EXIF tag: {orientation}")
+            return image
+            
+        except Exception as e:
+            logger.debug(f"Could not read EXIF orientation data: {e}")
+            return image
     
     def cleanup_temp_files(self):
         """Clean up all temporary files created by this instance"""
