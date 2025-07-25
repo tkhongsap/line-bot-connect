@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 
 class Logger:
-    """Centralized logging configuration for the LINE Bot application"""
+    """Centralized logging utilities for the LINE Bot application"""
     
     @staticmethod
     def setup_logger(name: str = __name__, level: str = "INFO"):
@@ -69,9 +69,14 @@ class Logger:
         
         logger.info(f"OpenAI Usage: {log_data}")
 
-# Configure root logger
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+def configure_root_logger(level: str = "INFO") -> None:
+    """Configure the root logger once for the whole application."""
+    log_level = os.environ.get("LOG_LEVEL", level).upper()
+    logging.basicConfig(
+        level=getattr(logging, log_level, logging.INFO),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+# Configure root logger on import for convenience
+configure_root_logger()

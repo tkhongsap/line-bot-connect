@@ -6,8 +6,10 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 # LINE Bot Flask Application
 # This application provides webhook endpoints for LINE Bot integration with Azure OpenAI
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
+# Configure logging using centralized utility
+from src.utils.logger import configure_root_logger
+
+configure_root_logger()
 logger = logging.getLogger(__name__)
 
 # Import services
