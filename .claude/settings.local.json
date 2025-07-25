@@ -7,7 +7,8 @@
       "Bash(git commit:*)",
       "Bash(uv run pytest:*)",
       "Bash(python test_responses_api.py:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }
