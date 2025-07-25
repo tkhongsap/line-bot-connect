@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Optional, Dict, Any
 from openai import AzureOpenAI
 from ..utils.prompt_manager import PromptManager
@@ -34,8 +35,13 @@ class OpenAIService:
             azure_endpoint=settings.AZURE_OPENAI_ENDPOINT
         )
         
-        # Track which API is available
+        # Circuit breaker for API availability with TTL cache
         self.responses_api_available = None
+        self.api_check_timestamp = None
+        self.api_check_ttl = 300  # 5 minutes cache
+        self.api_failure_count = 0
+        self.max_failures_before_fallback = 3
+        self.failure_reset_time = 600  # 10 minutes
 
     def update_system_prompt(self, prompt_type: str = "default"):
         """Update the system prompt to a different variation"""
@@ -52,37 +58,45 @@ class OpenAIService:
         """Get access to the prompt manager for advanced customization"""
         return self.prompt_manager
 
-    def _check_responses_api_availability(self):
-        """Check if Responses API is available and cache the result"""
-        if self.responses_api_available is not None:
+    def _should_use_responses_api(self):
+        """Determine if Responses API should be used based on circuit breaker pattern"""
+        current_time = time.time()
+        
+        # Check if we have a cached result that's still valid
+        if (self.responses_api_available is not None and 
+            self.api_check_timestamp is not None and 
+            current_time - self.api_check_timestamp < self.api_check_ttl):
             return self.responses_api_available
-            
-        try:
-            # Simple test call to check Responses API availability
-            test_response = self.client.responses.create(
-                model=self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
-                input="test",
-                max_output_tokens=1,
-                store=False
-            )
+        
+        # Check if we're in failure cooldown period
+        if (self.api_failure_count >= self.max_failures_before_fallback and
+            self.api_check_timestamp is not None and
+            current_time - self.api_check_timestamp < self.failure_reset_time):
+            logger.debug("Responses API in failure cooldown, using Chat Completions")
+            return False
+        
+        # Reset failure count after cooldown period
+        if (self.api_failure_count >= self.max_failures_before_fallback and
+            self.api_check_timestamp is not None and
+            current_time - self.api_check_timestamp >= self.failure_reset_time):
+            logger.info("Resetting Responses API failure count after cooldown")
+            self.api_failure_count = 0
+            self.responses_api_available = None
+        
+        # If we don't have a cached result, assume Responses API is available
+        # and let the actual API call determine if it works
+        if self.responses_api_available is None:
+            logger.debug("No cached API availability, defaulting to Responses API")
             self.responses_api_available = True
-            logger.info("Responses API is available and working")
-        except Exception as e:
-            if "404" in str(e) or "not found" in str(e).lower():
-                self.responses_api_available = False
-                logger.info("Responses API not available, will use Chat Completions fallback")
-            else:
-                # Other errors might be temporary, don't cache
-                logger.warning(f"Responses API test failed with error: {e}")
-                return False
-                
+            self.api_check_timestamp = current_time
+        
         return self.responses_api_available
 
     def get_response(self, user_id, user_message, use_streaming=True, image_data=None):
         """Get AI response using Responses API with Chat Completions fallback"""
         try:
-            # Check if Responses API is available
-            if self._check_responses_api_availability():
+            # Use circuit breaker pattern to determine which API to try first
+            if self._should_use_responses_api():
                 return self._get_response_with_responses_api(user_id, user_message, use_streaming, image_data)
             else:
                 return self._get_response_with_chat_completions(user_id, user_message, use_streaming, image_data)
@@ -98,6 +112,8 @@ class OpenAIService:
     def _get_response_with_responses_api(self, user_id, user_message, use_streaming=True, image_data=None):
         """Get response using Responses API with server-side conversation state"""
         try:
+            # Track successful API usage
+            self._record_api_success()
             # Get the last response ID for this user to maintain conversation context
             previous_response_id = self.conversation_service.get_last_response_id(user_id)
             
@@ -143,7 +159,8 @@ class OpenAIService:
                 
         except Exception as e:
             logger.error(f"Responses API error for user {user_id}: {str(e)}")
-            # Fall back to Chat Completions on error
+            # Record API failure and fall back to Chat Completions
+            self._record_api_failure(e)
             logger.info(f"Falling back to Chat Completions for user {user_id}")
             return self._get_response_with_chat_completions(user_id, user_message, use_streaming, image_data)
 
@@ -236,6 +253,7 @@ class OpenAIService:
             
         except Exception as e:
             logger.error(f"Responses API standard error for user {user_id}: {str(e)}")
+            self._record_api_failure(e)
             raise e
 
     def _get_standard_response_chat_completions(self, user_id, messages):
@@ -341,6 +359,7 @@ class OpenAIService:
             
         except Exception as e:
             logger.error(f"Responses API streaming error for user {user_id}: {str(e)}")
+            self._record_api_failure(e)
             raise e
 
     def _get_streaming_response_chat_completions(self, user_id, messages):
@@ -398,10 +417,8 @@ class OpenAIService:
         try:
             from ..utils.image_utils import ImageProcessor
             
-            # Initialize image processor
-            processor = ImageProcessor()
-            
-            try:
+            # Use context manager for automatic cleanup
+            with ImageProcessor() as processor:
                 # Download and process the image
                 download_result = processor.download_image_from_line(line_bot_api, message_id)
                 
@@ -428,10 +445,6 @@ class OpenAIService:
                     use_streaming=use_streaming,
                     image_data=image_base64
                 )
-                    
-            finally:
-                # Always cleanup temporary files
-                processor.cleanup_temp_files()
                     
         except Exception as e:
             logger.error(f"Vision API error for user {user_id}: {str(e)}")
@@ -467,8 +480,8 @@ class OpenAIService:
 
     def get_streaming_response_with_callback(self, user_id, user_input, previous_response_id=None, chunk_callback=None):
         """Get streaming response with callback support (legacy method for compatibility)"""
-        # For now, delegate to the appropriate method based on API availability
-        if self._check_responses_api_availability():
+        # For now, delegate to the appropriate method based on circuit breaker
+        if self._should_use_responses_api():
             logger.info("Using Responses API for streaming with callback")
             # Note: Full callback support for Responses API streaming would need more implementation
             return self._get_streaming_response_api(user_id, user_input, previous_response_id)
@@ -481,49 +494,79 @@ class OpenAIService:
                 messages = [{"role": "system", "content": self.system_prompt}] + user_input
             return self._get_streaming_response_chat_completions(user_id, messages)
 
+    def _record_api_success(self):
+        """Record successful API usage and reset failure count"""
+        if self.api_failure_count > 0:
+            logger.info(f"Responses API recovered after {self.api_failure_count} failures")
+        self.api_failure_count = 0
+        self.responses_api_available = True
+        self.api_check_timestamp = time.time()
+    
+    def _record_api_failure(self, error):
+        """Record API failure and update circuit breaker state"""
+        self.api_failure_count += 1
+        self.api_check_timestamp = time.time()
+        
+        # Check if this is a permanent failure (404, not found)
+        if "404" in str(error) or "not found" in str(error).lower():
+            logger.info("Responses API permanently unavailable (404), switching to Chat Completions")
+            self.responses_api_available = False
+            self.api_failure_count = self.max_failures_before_fallback
+        elif self.api_failure_count >= self.max_failures_before_fallback:
+            logger.warning(f"Responses API failed {self.api_failure_count} times, temporarily switching to Chat Completions")
+            self.responses_api_available = False
+        else:
+            logger.debug(f"Responses API failure {self.api_failure_count}/{self.max_failures_before_fallback}")
+    
     def test_connection(self):
-        """Test connection with both APIs"""
+        """Test connection by making an actual API call without pre-flight checks"""
         try:
-            # Try Responses API first
-            if self._check_responses_api_availability():
-                response = self.client.responses.create(
-                    model=self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
-                    input="Say 'Connection test successful' in both English and Thai.",
-                    instructions="You are a helpful assistant.",
-                    max_output_tokens=100,
-                    temperature=0.3,
-                    store=False
-                )
-                
-                return {
-                    'success': True,
-                    'message': response.output_text,
-                    'tokens_used': response.usage.total_tokens if response.usage else 0,
-                    'api_type': 'responses'
-                }
-            else:
-                # Fall back to Chat Completions
-                from typing import cast
-                from openai.types.chat import ChatCompletionMessageParam
-                
-                test_messages = cast(list[ChatCompletionMessageParam], [
-                    {"role": "system", "content": "You are a helpful assistant."},
-                    {"role": "user", "content": "Say 'Connection test successful' in both English and Thai."}
-                ])
-                
-                response = self.fallback_client.chat.completions.create(
-                    model=self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
-                    messages=test_messages,
-                    max_tokens=100,
-                    temperature=0.3
-                )
-                
-                return {
-                    'success': True,
-                    'message': response.choices[0].message.content,
-                    'tokens_used': response.usage.total_tokens if response.usage else 0,
-                    'api_type': 'chat_completions'
-                }
+            # Try Responses API first if circuit breaker allows it
+            if self._should_use_responses_api():
+                try:
+                    response = self.client.responses.create(
+                        model=self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
+                        input="Say 'Connection test successful' in both English and Thai.",
+                        instructions="You are a helpful assistant.",
+                        max_output_tokens=100,
+                        temperature=0.3,
+                        store=False
+                    )
+                    
+                    self._record_api_success()
+                    return {
+                        'success': True,
+                        'message': response.output_text,
+                        'tokens_used': response.usage.total_tokens if response.usage else 0,
+                        'api_type': 'responses'
+                    }
+                except Exception as e:
+                    logger.info(f"Responses API test failed, trying Chat Completions: {e}")
+                    self._record_api_failure(e)
+                    # Fall through to Chat Completions
+            
+            # Use Chat Completions as fallback
+            from typing import cast
+            from openai.types.chat import ChatCompletionMessageParam
+            
+            test_messages = cast(list[ChatCompletionMessageParam], [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "Say 'Connection test successful' in both English and Thai."}
+            ])
+            
+            response = self.fallback_client.chat.completions.create(
+                model=self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
+                messages=test_messages,
+                max_tokens=100,
+                temperature=0.3
+            )
+            
+            return {
+                'success': True,
+                'message': response.choices[0].message.content,
+                'tokens_used': response.usage.total_tokens if response.usage else 0,
+                'api_type': 'chat_completions'
+            }
             
         except Exception as e:
             logger.error(f"Connection test failed: {str(e)}")
