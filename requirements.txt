@@ -5,3 +5,7 @@ pyheif>=0.7.1
 # Add these for modern mobile image formats
 pillow-avif-plugin>=1.4.0  # AVIF support (modern Android devices)
 pillow-jxl-plugin>=0.2.0   # JPEG XL support (emerging format) 
+flask
+pillow-avif-plugin
+pillow-heif
+werkzeug

@@ -32,7 +32,7 @@ except Exception as e:
 
 # Enable JPEG XL support (emerging format)
 try:
-    from pillow_jxl import JxlImagePlugin
+    import pillow_jxl  # Import the plugin module
     logger.info("JPEG XL image format support enabled")
 except ImportError:
     logger.warning("JPEG XL support not available - install pillow-jxl-plugin for cutting-edge format support")
@@ -235,7 +235,7 @@ class ImageProcessor:
             logger.error(f"Error converting image to base64: {str(e)}")
             raise
     
-    def preprocess_image_if_needed(self, image_data: bytes, max_dimension: int = None) -> bytes:
+    def preprocess_image_if_needed(self, image_data: bytes, max_dimension: Optional[int] = None) -> bytes:
         """
         Preprocess image if it exceeds size limits (optimized for mobile screenshots)
         
@@ -406,17 +406,17 @@ class ImageProcessor:
             
             # Apply rotation based on orientation
             if orientation == 2:
-                image = image.transpose(Image.FLIP_LEFT_RIGHT)
+                image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
             elif orientation == 3:
                 image = image.rotate(180, expand=True)
             elif orientation == 4:
-                image = image.transpose(Image.FLIP_TOP_BOTTOM)
+                image = image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
             elif orientation == 5:
-                image = image.transpose(Image.FLIP_LEFT_RIGHT).rotate(90, expand=True)
+                image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT).rotate(90, expand=True)
             elif orientation == 6:
                 image = image.rotate(270, expand=True)
             elif orientation == 7:
-                image = image.transpose(Image.FLIP_LEFT_RIGHT).rotate(270, expand=True)
+                image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT).rotate(270, expand=True)
             elif orientation == 8:
                 image = image.rotate(90, expand=True)
             

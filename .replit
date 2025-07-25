@@ -2,7 +2,7 @@ modules = ["nodejs-20", "python-3.11"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["openssl", "postgresql"]
+packages = ["libaom", "libde265", "libheif", "nasm", "openssl", "postgresql", "x265"]
 
 [deployment]
 deploymentTarget = "autoscale"
