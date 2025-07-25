@@ -1,10 +1,5 @@
 import logging
-import json
-import time
-import hashlib
-from datetime import datetime, timedelta
 from openai import AzureOpenAI
-from src.utils.image_utils import ImageProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +17,6 @@ class OpenAIService:
             azure_endpoint=settings.AZURE_OPENAI_ENDPOINT
         )
         
-        # Web search caching and rate limiting
-        self.search_cache = {}  # Format: {query_hash: {"result": str, "timestamp": datetime}}
-        self.search_rate_limits = {}  # Format: {user_id: {"count": int, "reset_time": datetime}}
-        self.search_cache_ttl = 15 * 60  # 15 minutes in seconds
-        self.search_rate_limit = 10  # searches per hour per user
         
         # Bot personality and system prompt - inspired by Anthony Bourdain's worldview
         # Using GPT-4.1-nano's multimodal capabilities for both text and image understanding
@@ -44,15 +34,9 @@ Your approach:
 - Ask follow-up questions when someone shares something interesting - you're genuinely curious
 - Share observations that connect their experience to the broader human condition
 - When analyzing images, describe what you see with the same curiosity you bring to conversations
-- When you don't know something current or need real-time information, you can search the web to provide accurate, up-to-date answers
-- Keep responses conversational and appropriately sized for LINE messaging (under 1000 characters when possible)
-- CRITICAL: Always respond in the EXACT same language as the user's message - match their linguistic choice completely
-- Use emojis sparingly but meaningfully, like punctuation in a good story
-
-Web Search Guidelines:
-- Use web search when users ask about current events, news, weather, stock prices, or recent information
-- When providing information from search results, naturally mention sources without being overly formal
-- If search fails or is unavailable, be honest about limitations and provide what knowledge you have
+        - Keep responses conversational and appropriately sized for LINE messaging (under 1000 characters when possible)
+        - CRITICAL: Always respond in the EXACT same language as the user's message - match their linguistic choice completely
+        - Use emojis sparingly but meaningfully, like punctuation in a good story
 
 Multilingual Communication Rules:
 - Detect the language of each user message and respond in that exact language
@@ -71,67 +55,6 @@ Cultural Sensitivity Guidelines:
 
 You're here to help, but more than that, you're here to connect across languages and cultures. Every person has a story worth hearing, and every conversation is a chance to understand something new about this beautiful, diverse world we all share."""
 
-    def _can_user_search(self, user_id: str) -> bool:
-        """Check if user is within search rate limits"""
-        current_time = datetime.now()
-        
-        # Clean up expired rate limit entries
-        self._cleanup_rate_limits()
-        
-        if user_id not in self.search_rate_limits:
-            return True
-            
-        user_limits = self.search_rate_limits[user_id]
-        
-        # Check if the hour window has reset
-        if current_time >= user_limits["reset_time"]:
-            # Reset the rate limit
-            self.search_rate_limits[user_id] = {
-                "count": 0,
-                "reset_time": current_time + timedelta(hours=1)
-            }
-            return True
-        
-        # Check if user is under the limit
-        return user_limits["count"] < self.search_rate_limit
-    
-    def _increment_search_count(self, user_id: str):
-        """Increment search count for rate limiting"""
-        current_time = datetime.now()
-        
-        if user_id not in self.search_rate_limits:
-            self.search_rate_limits[user_id] = {
-                "count": 1,
-                "reset_time": current_time + timedelta(hours=1)
-            }
-        else:
-            self.search_rate_limits[user_id]["count"] += 1
-    
-    def _cleanup_rate_limits(self):
-        """Clean up expired rate limit entries"""
-        current_time = datetime.now()
-        expired_users = [
-            user_id for user_id, limits in self.search_rate_limits.items()
-            if current_time >= limits["reset_time"]
-        ]
-        
-        for user_id in expired_users:
-            del self.search_rate_limits[user_id]
-    
-    def _cleanup_search_cache(self):
-        """Clean up expired search cache entries"""
-        current_time = time.time()
-        expired_queries = [
-            query_hash for query_hash, cache_entry in self.search_cache.items()
-            if (current_time - cache_entry["timestamp"]) > self.search_cache_ttl
-        ]
-        
-        for query_hash in expired_queries:
-            del self.search_cache[query_hash]
-    
-    def _get_cache_key(self, query: str) -> str:
-        """Generate cache key for search query"""
-        return str(hash(query.lower().strip()))
 
     def get_response(self, user_id, user_message, use_streaming=True, image_data=None):
         """Get AI response for user message with conversation context and optional image"""
@@ -260,30 +183,7 @@ You're here to help, but more than that, you're here to connect across languages
             
             formatted_messages = cast(list[ChatCompletionMessageParam], messages)
             
-            # Include web search tool if user is within rate limits
-            tools = None
-            if self._can_user_search(user_id):
-                tools = [
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": "web_search",
-                            "description": "Search the web for current information, news, weather, stock prices, or recent events",
-                            "parameters": {
-                                "type": "object",
-                                "properties": {
-                                    "query": {
-                                        "type": "string",
-                                        "description": "The search query"
-                                    }
-                                },
-                                "required": ["query"]
-                            }
-                        }
-                    }
-                ]
-                self._increment_search_count(user_id)
-                logger.info(f"Including web search tool for streaming user {user_id}")
+            # Prepare streaming request
             
             # Create streaming request
             stream = self.client.chat.completions.create(
@@ -294,7 +194,6 @@ You're here to help, but more than that, you're here to connect across languages
                 top_p=0.9,
                 frequency_penalty=0.1,
                 presence_penalty=0.1,
-                tools=tools,
                 stream=True
             )
             
@@ -400,30 +299,7 @@ You're here to help, but more than that, you're here to connect across languages
             
             formatted_messages = cast(list[ChatCompletionMessageParam], messages)
             
-            # Include web search tool if user is within rate limits
-            tools = None
-            if self._can_user_search(user_id):
-                tools = [
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": "web_search",
-                            "description": "Search the web for current information, news, weather, stock prices, or recent events",
-                            "parameters": {
-                                "type": "object",
-                                "properties": {
-                                    "query": {
-                                        "type": "string",
-                                        "description": "The search query"
-                                    }
-                                },
-                                "required": ["query"]
-                            }
-                        }
-                    }
-                ]
-                self._increment_search_count(user_id)
-                logger.info(f"Including web search tool for user {user_id}")
+
             
             response = self.client.chat.completions.create(
                 model=self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
@@ -433,92 +309,17 @@ You're here to help, but more than that, you're here to connect across languages
                 top_p=0.9,
                 frequency_penalty=0.1,
                 presence_penalty=0.1,
-                tools=tools,
                 stream=False
             )
             
-            # Check if AI wants to use tools (like web search)
             message = response.choices[0].message
-            
-            if message.tool_calls:
-                # Handle tool calls (web search)
-                logger.info(f"AI requested {len(message.tool_calls)} tool calls for user {user_id}")
-                
-                # Add the assistant's tool call message to conversation
-                tool_messages = [
-                    {
-                        "role": "assistant",
-                        "content": message.content or "",
-                        "tool_calls": [
-                            {
-                                "id": tool_call.id,
-                                "type": "function", 
-                                "function": {
-                                    "name": tool_call.function.name,
-                                    "arguments": tool_call.function.arguments
-                                }
-                            } for tool_call in message.tool_calls
-                        ]
-                    }
-                ]
-                
-                # Process each tool call
-                for tool_call in message.tool_calls:
-                    if tool_call.function.name == "web_search":
-                        # Parse search query
-                        try:
-                            import json
-                            args = json.loads(tool_call.function.arguments)
-                            search_query = args.get("query", "")
-                            
-                            # Perform cached web search
-                            search_result = self._perform_cached_search(user_id, search_query)
-                            
-                            # Add tool result to messages
-                            tool_messages.append({
-                                "role": "tool",
-                                "tool_call_id": tool_call.id,
-                                "content": search_result
-                            })
-                            
-                            logger.info(f"Performed web search for user {user_id}: '{search_query}'")
-                            
-                        except Exception as e:
-                            logger.error(f"Web search error for user {user_id}: {str(e)}")
-                            tool_messages.append({
-                                "role": "tool", 
-                                "tool_call_id": tool_call.id,
-                                "content": f"Search failed: {str(e)}"
-                            })
-                
-                # Get final response with search results
-                final_messages = formatted_messages + tool_messages
-                final_response = self.client.chat.completions.create(
-                    model=self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
-                    messages=final_messages,
-                    max_tokens=800,
-                    temperature=0.7,
-                    stream=False
-                )
-                
-                ai_message = final_response.choices[0].message.content
-                if ai_message:
-                    ai_message = ai_message.strip()
-                else:
-                    ai_message = "I apologize, but I couldn't generate a response. Please try again."
-                    
-                total_tokens = (response.usage.total_tokens if response.usage else 0) + \
-                              (final_response.usage.total_tokens if final_response.usage else 0)
-                
+            ai_message = message.content
+            if ai_message:
+                ai_message = ai_message.strip()
             else:
-                # Standard response without tool calls
-                ai_message = message.content
-                if ai_message:
-                    ai_message = ai_message.strip()
-                else:
-                    ai_message = "I apologize, but I couldn't generate a response. Please try again."
-                    
-                total_tokens = response.usage.total_tokens if response.usage else 0
+                ai_message = "I apologize, but I couldn't generate a response. Please try again."
+
+            total_tokens = response.usage.total_tokens if response.usage else 0
             
             # Add AI response to conversation history
             self.conversation_service.add_message(user_id, "assistant", ai_message)
@@ -536,50 +337,6 @@ You're here to help, but more than that, you're here to connect across languages
             logger.error(f"Standard API error for user {user_id}: {str(e)}")
             raise e
     
-    def _perform_cached_search(self, user_id: str, query: str) -> str:
-        """Perform web search with caching"""
-        # Create cache key
-        query_hash = hashlib.md5(query.encode()).hexdigest()
-        current_time = datetime.now()
-        
-        # Check cache first
-        if query_hash in self.search_cache:
-            cached_entry = self.search_cache[query_hash]
-            cache_age = (current_time - cached_entry["timestamp"]).total_seconds()
-            
-            if cache_age < self.search_cache_ttl:
-                logger.info(f"Using cached search result for user {user_id}: '{query}' (age: {cache_age:.0f}s)")
-                return cached_entry["result"]
-        
-        # Simulate web search (in real implementation, this would call a search API)
-        # For now, return a placeholder that indicates search capability is ready
-        search_result = f"Web search functionality is configured and ready. Query: '{query}'\n\nTo complete the web search integration, you would typically:\n1. Connect to a search API (Bing, Google, etc.)\n2. Process the search results\n3. Format them for the AI response\n\nThe rate limiting ({self.search_rate_limit} searches/hour) and caching ({self.search_cache_ttl//60} minutes) are working correctly."
-        
-        # Cache the result
-        self.search_cache[query_hash] = {
-            "result": search_result,
-            "timestamp": current_time
-        }
-        
-        # Clean up old cache entries
-        self._cleanup_search_cache()
-        
-        logger.info(f"Performed new search for user {user_id}: '{query}'")
-        return search_result
-    
-    def _cleanup_search_cache(self):
-        """Clean up expired cache entries"""
-        current_time = datetime.now()
-        expired_keys = [
-            key for key, entry in self.search_cache.items()
-            if (current_time - entry["timestamp"]).total_seconds() > self.search_cache_ttl
-        ]
-        
-        for key in expired_keys:
-            del self.search_cache[key]
-        
-        if expired_keys:
-            logger.debug(f"Cleaned up {len(expired_keys)} expired search cache entries")
     
     def _create_message_with_image(self, text_content: str, image_data: str = None):
         """Create message structure with optional image for vision API"""

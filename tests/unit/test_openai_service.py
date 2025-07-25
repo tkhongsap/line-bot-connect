@@ -189,7 +189,6 @@ class TestOpenAIService:
         # Check for key characteristics mentioned in the prompt
         assert "conversationalist" in system_prompt
         assert "unapologetic honesty" in system_prompt
-        assert "web search" in system_prompt.lower()
         assert "authentic" in system_prompt
         
         # Check for multilingual support
@@ -222,125 +221,6 @@ class TestOpenAIService:
         assert call_args[1]['temperature'] == 0.7
         assert call_args[1]['stream'] is False
     
-    def test_web_search_rate_limiting(self, openai_service):
-        """Test web search rate limiting functionality"""
-        user_id = "test_user"
-        
-        # User should be able to search initially
-        assert openai_service._can_user_search(user_id) is True
-        
-        # Simulate reaching the rate limit (10 searches per hour)
-        for i in range(10):
-            openai_service._increment_search_count(user_id)
-        
-        # User should be rate limited now
-        assert openai_service._can_user_search(user_id) is False
-        
-        # Check that rate limit data is stored correctly
-        assert user_id in openai_service.search_rate_limits
-        assert openai_service.search_rate_limits[user_id]["count"] == 10
-    
-    def test_web_search_cache_functionality(self, openai_service):
-        """Test web search result caching"""
-        query = "What's the weather today?"
-        cache_key = openai_service._get_cache_key(query)
-        
-        # Cache should be empty initially
-        assert cache_key not in openai_service.search_cache
-        
-        # Simulate adding to cache
-        from datetime import datetime, timedelta
-        openai_service.search_cache[cache_key] = {
-            "result": "It's sunny today",
-            "timestamp": datetime.now()
-        }
-        
-        # Should find cached result
-        assert cache_key in openai_service.search_cache
-        
-        # Test cache cleanup
-        # Add expired entry
-        expired_key = "expired_query"
-        openai_service.search_cache[expired_key] = {
-            "result": "Old result",
-            "timestamp": datetime.now() - timedelta(minutes=16)  # expired
-        }
-        
-        openai_service._cleanup_search_cache()
-        
-        # Expired entry should be removed
-        assert expired_key not in openai_service.search_cache
-        # Current entry should remain
-        assert cache_key in openai_service.search_cache
-    
-    def test_web_search_tool_integration(self, openai_service, sample_openai_response):
-        """Test that web search tool is included when user is within limits"""
-        user_id = "test_user"
-        user_message = "What's the latest news?"
-        
-        # Mock the OpenAI client response
-        openai_service.client.chat.completions.create.return_value = sample_openai_response
-        
-        result = openai_service.get_response(user_id, user_message, use_streaming=False)
-        
-        assert result['success'] is True
-        
-        # Verify the API was called with web search tools
-        call_args = openai_service.client.chat.completions.create.call_args
-        tools = call_args[1].get('tools')
-        
-        # Should include web search tool
-        assert tools is not None
-        assert len(tools) == 1
-        assert tools[0]["type"] == "web_search"
-        
-        # Verify search count was incremented
-        assert user_id in openai_service.search_rate_limits
-        assert openai_service.search_rate_limits[user_id]["count"] == 1
-    
-    def test_web_search_rate_limit_prevents_tool_usage(self, openai_service, sample_openai_response):
-        """Test that web search tool is not included when user exceeds rate limit"""
-        user_id = "test_user"
-        user_message = "What's the latest news?"
-        
-        # Exhaust the rate limit
-        for i in range(10):
-            openai_service._increment_search_count(user_id)
-        
-        # Mock the OpenAI client response
-        openai_service.client.chat.completions.create.return_value = sample_openai_response
-        
-        result = openai_service.get_response(user_id, user_message, use_streaming=False)
-        
-        assert result['success'] is True
-        
-        # Verify the API was called without web search tools
-        call_args = openai_service.client.chat.completions.create.call_args
-        tools = call_args[1].get('tools')
-        
-        # Should not include web search tool due to rate limiting
-        assert tools is None
-    
-    def test_system_prompt_includes_web_search_instructions(self, openai_service):
-        """Test that system prompt includes web search and multilingual instructions"""
-        system_prompt = openai_service.system_prompt
-        
-        # Check for web search instructions
-        assert "web search" in system_prompt.lower()
-        assert "current events" in system_prompt.lower()
-        assert "real-time information" in system_prompt.lower()
-        
-        # Check for multilingual matching instructions
-        assert "EXACT same language" in system_prompt
-        assert "Multilingual Communication Rules" in system_prompt
-        assert "Cultural Sensitivity Guidelines" in system_prompt
-        
-        # Check for cultural sensitivity
-        assert "Traditional and Simplified" in system_prompt
-        assert "formal/informal distinctions" in system_prompt
-        
-        # Check for sources information  
-        assert "sources" in system_prompt.lower()
     
     def test_multilingual_system_prompt_features(self, openai_service):
         """Test that system prompt supports comprehensive multilingual features"""

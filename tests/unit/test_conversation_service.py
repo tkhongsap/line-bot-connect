@@ -2,6 +2,7 @@
 Unit tests for Conversation service
 """
 import pytest
+from unittest.mock import Mock
 from datetime import datetime, timedelta
 from src.services.conversation_service import ConversationService
 
