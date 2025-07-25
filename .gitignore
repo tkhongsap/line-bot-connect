@@ -3,3 +3,20 @@ __pycache__/
 .env
 htmlcov/
 *.log
+
+# Test coverage files
+.coverage
+.coverage.*
+coverage.xml
+
+# Temporary files
+*.tmp
+*.temp
+
+# Development artifacts
+attached_assets/
+
+# PR/Task files (temporary)
+FINAL_PR_INSTRUCTIONS.md
+PR_INFO.md
+create_pr.*
