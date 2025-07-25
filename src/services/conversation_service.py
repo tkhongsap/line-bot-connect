@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +9,7 @@ class ConversationService:
     
     def __init__(self):
         # In-memory storage for conversations
-        # Format: {user_id: {"messages": [...], "created_at": datetime, "last_activity": datetime}}
+        # Format: {user_id: {"messages": [...], "created_at": datetime, "last_activity": datetime, "last_response_id": str}}
         self.conversations: Dict[str, Dict] = {}
         
         # Configuration
@@ -24,7 +24,8 @@ class ConversationService:
                 self.conversations[user_id] = {
                     "messages": [],
                     "created_at": datetime.now(),
-                    "last_activity": datetime.now()
+                    "last_activity": datetime.now(),
+                    "last_response_id": None  # For Responses API conversation continuity
                 }
                 logger.info(f"Created new conversation for user {user_id}")
             
@@ -55,8 +56,37 @@ class ConversationService:
         except Exception as e:
             logger.error(f"Error adding message for user {user_id}: {str(e)}")
     
+    def get_last_response_id(self, user_id: str) -> Optional[str]:
+        """Get the last response ID for Responses API conversation continuity"""
+        if user_id not in self.conversations:
+            return None
+        
+        return self.conversations[user_id].get("last_response_id")
+    
+    def set_last_response_id(self, user_id: str, response_id: str):
+        """Set the last response ID for Responses API conversation continuity"""
+        try:
+            # Initialize conversation if it doesn't exist
+            if user_id not in self.conversations:
+                self.conversations[user_id] = {
+                    "messages": [],
+                    "created_at": datetime.now(),
+                    "last_activity": datetime.now(),
+                    "last_response_id": None
+                }
+                logger.info(f"Created new conversation for user {user_id}")
+            
+            # Update the response ID and last activity
+            self.conversations[user_id]["last_response_id"] = response_id
+            self.conversations[user_id]["last_activity"] = datetime.now()
+            
+            logger.debug(f"Set last_response_id for user {user_id}: {response_id}")
+            
+        except Exception as e:
+            logger.error(f"Error setting response ID for user {user_id}: {str(e)}")
+    
     def get_conversation_history(self, user_id: str) -> List[Dict]:
-        """Get conversation history for a user"""
+        """Get conversation history for a user (legacy support - less needed with Responses API)"""
         if user_id not in self.conversations:
             return []
         
@@ -77,7 +107,9 @@ class ConversationService:
                 "exists": False,
                 "message_count": 0,
                 "created_at": None,
-                "last_activity": None
+                "last_activity": None,
+                "has_response_id": False,
+                "last_response_id": None
             }
         
         conv = self.conversations[user_id]
@@ -85,7 +117,9 @@ class ConversationService:
             "exists": True,
             "message_count": len(conv["messages"]),
             "created_at": conv["created_at"].isoformat(),
-            "last_activity": conv["last_activity"].isoformat()
+            "last_activity": conv["last_activity"].isoformat(),
+            "has_response_id": bool(conv.get("last_response_id")),
+            "last_response_id": conv.get("last_response_id")
         }
     
     def clear_conversation(self, user_id: str) -> bool:
@@ -103,13 +137,19 @@ class ConversationService:
             for conv in self.conversations.values()
         )
         
+        conversations_with_response_ids = sum(
+            1 for conv in self.conversations.values()
+            if conv.get("last_response_id")
+        )
+        
         return {
             "total_users": len(self.conversations),
             "total_messages": total_messages,
             "active_conversations": len([
                 conv for conv in self.conversations.values()
                 if len(conv["messages"]) > 0
-            ])
+            ]),
+            "conversations_with_response_ids": conversations_with_response_ids
         }
     
     def _manage_global_limits(self):

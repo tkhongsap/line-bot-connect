@@ -14,11 +14,13 @@ class Settings:
         self.LINE_CHANNEL_ID = os.environ.get("LINE_CHANNEL_ID")
         
         # Azure OpenAI Configuration
+        # Note: Using Responses API which requires preview API version for full feature access
         self.AZURE_OPENAI_API_KEY = os.environ.get("AZURE_OPENAI_API_KEY")
         self.AZURE_OPENAI_ENDPOINT = os.environ.get(
             "AZURE_OPENAI_ENDPOINT", 
             "https://thaibev-azure-subscription-ai-foundry.cognitiveservices.azure.com"
         )
+        # Responses API compatibility: We use preview in the service itself, but keep this for reference
         self.AZURE_OPENAI_API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
         self.AZURE_OPENAI_DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1-nano")
         
@@ -34,37 +36,37 @@ class Settings:
         self._validate_settings()
     
     def _validate_settings(self):
-        """Validate that required environment variables are set"""
+        """Validate that all required settings are present"""
         required_settings = [
             ("LINE_CHANNEL_ACCESS_TOKEN", self.LINE_CHANNEL_ACCESS_TOKEN),
             ("LINE_CHANNEL_SECRET", self.LINE_CHANNEL_SECRET),
             ("AZURE_OPENAI_API_KEY", self.AZURE_OPENAI_API_KEY),
+            ("AZURE_OPENAI_ENDPOINT", self.AZURE_OPENAI_ENDPOINT),
+            ("AZURE_OPENAI_DEPLOYMENT_NAME", self.AZURE_OPENAI_DEPLOYMENT_NAME)
         ]
         
         missing_settings = []
-        for name, value in required_settings:
-            if not value:
-                missing_settings.append(name)
+        for setting_name, setting_value in required_settings:
+            if not setting_value:
+                missing_settings.append(setting_name)
         
         if missing_settings:
             raise ValueError(
                 f"Missing required environment variables: {', '.join(missing_settings)}. "
-                f"Please set these in Replit Secrets or your .env file."
+                "Please check your .env file or environment configuration."
             )
     
-    def get_webhook_url(self, base_url: str) -> str:
-        """Generate webhook URL for LINE configuration"""
-        return f"{base_url.rstrip('/')}/webhook"
-    
-    def to_dict(self):
-        """Return configuration as dictionary (excluding sensitive data)"""
+    def get_summary(self):
+        """Get a summary of current settings (without sensitive values)"""
         return {
-            "LINE_CHANNEL_ID": self.LINE_CHANNEL_ID,
-            "AZURE_OPENAI_ENDPOINT": self.AZURE_OPENAI_ENDPOINT,
-            "AZURE_OPENAI_API_VERSION": self.AZURE_OPENAI_API_VERSION,
-            "AZURE_OPENAI_DEPLOYMENT_NAME": self.AZURE_OPENAI_DEPLOYMENT_NAME,
-            "DEBUG": self.DEBUG,
-            "LOG_LEVEL": self.LOG_LEVEL,
-            "MAX_MESSAGES_PER_USER": self.MAX_MESSAGES_PER_USER,
-            "MAX_TOTAL_CONVERSATIONS": self.MAX_TOTAL_CONVERSATIONS,
+            "debug_mode": self.DEBUG,
+            "log_level": self.LOG_LEVEL,
+            "azure_endpoint": self.AZURE_OPENAI_ENDPOINT,
+            "api_version": self.AZURE_OPENAI_API_VERSION,
+            "deployment_name": self.AZURE_OPENAI_DEPLOYMENT_NAME,
+            "max_messages_per_user": self.MAX_MESSAGES_PER_USER,
+            "max_total_conversations": self.MAX_TOTAL_CONVERSATIONS,
+            "line_channel_configured": bool(self.LINE_CHANNEL_ACCESS_TOKEN),
+            "azure_openai_configured": bool(self.AZURE_OPENAI_API_KEY),
+            "api_type": "Azure OpenAI Responses API"  # Updated to reflect new API usage
         }

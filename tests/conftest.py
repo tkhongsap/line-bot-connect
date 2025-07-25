@@ -43,9 +43,31 @@ def mock_openai_client():
 
 
 @pytest.fixture
-def openai_service(mock_settings, conversation_service, mock_openai_client):
+def openai_service(mock_settings, conversation_service):
     """Create OpenAIService with mocked dependencies"""
-    return OpenAIService(mock_settings, conversation_service)
+    with patch('src.services.openai_service.AzureOpenAI') as mock_azure_openai:
+        # Create mock instances for both clients
+        mock_responses_client = Mock()
+        mock_fallback_client = Mock()
+        
+        # Set up the mock to return different instances
+        mock_azure_openai.side_effect = [mock_responses_client, mock_fallback_client]
+        
+        # Create the service
+        service = OpenAIService(mock_settings, conversation_service)
+        
+        # Ensure the mocked clients are accessible
+        service.client = mock_responses_client
+        service.fallback_client = mock_fallback_client
+        
+        # Set up responses API mock
+        mock_responses_client.responses = Mock()
+        
+        # Set up chat completions mock for fallback
+        mock_fallback_client.chat = Mock()
+        mock_fallback_client.chat.completions = Mock()
+        
+        yield service
 
 
 @pytest.fixture
@@ -176,3 +198,63 @@ def large_conversation_history():
         history.append({"role": "user", "content": f"Message {i}"})
         history.append({"role": "assistant", "content": f"Response {i}"})
     return history
+
+
+@pytest.fixture
+def sample_responses_api_response():
+    """Sample Responses API response"""
+    response = Mock()
+    response.output_text = "Hello! How can I help you today?"
+    response.id = "resp_123456789"
+    response.usage = Mock()
+    response.usage.total_tokens = 50
+    return response
+
+
+@pytest.fixture
+def sample_responses_api_streaming_events():
+    """Sample Responses API streaming events"""
+    events = []
+    
+    # Initial response event with ID
+    event1 = Mock()
+    event1.type = "response.created"
+    event1.response = Mock()
+    event1.response.id = "resp_stream_123"
+    events.append(event1)
+    
+    # Text delta events
+    event2 = Mock()
+    event2.type = "response.output_text.delta"
+    event2.delta = "Hello! "
+    events.append(event2)
+    
+    event3 = Mock()
+    event3.type = "response.output_text.delta"
+    event3.delta = "How can I help you today?"
+    events.append(event3)
+    
+    # Final done event with usage
+    event4 = Mock()
+    event4.type = "response.done"
+    event4.response = Mock()
+    event4.response.id = "resp_stream_123"
+    event4.response.usage = Mock()
+    event4.response.usage.total_tokens = 50
+    events.append(event4)
+    
+    return events
+
+
+@pytest.fixture
+def mock_responses_api_404_error():
+    """Mock 404 error for Responses API not available"""
+    error = Exception("404 Client Error: Not Found for url: https://test.openai.azure.com/openai/v1/responses")
+    return error
+
+
+@pytest.fixture
+def mock_responses_api_other_error():
+    """Mock other error for Responses API"""
+    error = Exception("500 Server Error: Internal Server Error")
+    return error
