@@ -116,7 +116,7 @@ class LineService:
             logger.info(f"Received image message from user {user_id[:8]}... (message_id: {message_id})")
             
             # Send processing status message (using push since we'll need reply token later)
-            processing_msg = "處理您的圖像中，請稍候... 🖼️\nProcessing your image, please wait... 🖼️"
+            processing_msg = "กำลังประมวลผลรูปภาพของคุณ กรุณารอสักครู่... 🖼️\nProcessing your image, please wait... 🖼️"
             push_result = self.send_push_message(user_id, processing_msg)
             if not push_result['success']:
                 logger.warning(f"Failed to send processing status to user {user_id[:8]}...")
@@ -139,13 +139,13 @@ class LineService:
                     logger.error(f"Image download failed for user {user_id[:8]}...: {error_code} - {error_details}")
                     
                     if error_code == 'FILE_TOO_LARGE':
-                        error_msg = "圖像文件太大（最大10MB）。請發送較小的圖像。\nImage file too large (max 10MB). Please send a smaller image."
+                        error_msg = "ไฟล์รูปภาพใหญ่เกินไป (สูงสุด 10MB)\nImage file too large (max 10MB)"
                     elif error_code == 'UNSUPPORTED_FORMAT':
-                        error_msg = "不支持的圖像格式。請發送 JPG、PNG、GIF、WEBP、HEIC 或 HEIF 圖像。\nUnsupported image format. Please send JPG, PNG, GIF, WEBP, HEIC or HEIF images."
+                        error_msg = "รูปแบบไฟล์ไม่รองรับ กรุณาส่งรูป JPG, PNG หรือ GIF\nUnsupported format. Please send JPG, PNG or GIF"
                     elif error_code == 'DOWNLOAD_TIMEOUT':
-                        error_msg = "圖像下載超時。請檢查網絡連接並重試。\nImage download timed out. Please check your connection and try again."
+                        error_msg = "ดาวน์โหลดรูปภาพใช้เวลานานเกินไป กรุณาลองใหม่\nImage download timed out. Please try again"
                     else:
-                        error_msg = f"圖像處理失敗：{error_details}\nImage processing failed: {error_details}"
+                        error_msg = f"ประมวลผลรูปภาพไม่สำเร็จ\nImage processing failed"
                     
                     self._send_message(event.reply_token, error_msg)
                     return
