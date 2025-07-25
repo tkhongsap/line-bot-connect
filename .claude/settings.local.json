@@ -8,7 +8,9 @@
       "Bash(uv run pytest:*)",
       "Bash(python test_responses_api.py:*)",
       "Bash(grep:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(./scripts/run_tests.sh:*)",
+      "Bash(python test:*)"
     ],
     "deny": []
   }

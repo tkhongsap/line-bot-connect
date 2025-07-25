@@ -813,25 +813,36 @@ class TestOpenAIService:
     
     def test_get_response_with_image_via_line_api(self, openai_service, sample_responses_api_response):
         """Test get_response_with_image method that processes LINE images"""
+        import time
+        
         user_id = "test_user"
         message_id = "msg_123"
         
         # Mock the ImageProcessor with the correct import path
         with patch('src.utils.image_utils.ImageProcessor') as mock_processor_class:
             mock_processor = Mock()
-            mock_processor.to_base64.return_value = "data:image/jpeg;base64,mockdata"
-            mock_processor.get_metadata.return_value = {
+            
+            # Mock the download_image_from_line method to return success
+            mock_processor.download_image_from_line.return_value = {
+                'success': True,
+                'image_data': b'mock_image_data',
                 'format': 'JPEG',
-                'size_bytes': 1024,
-                'width': 800,
-                'height': 600
+                'size': 1024
             }
+            
+            # Mock image processing methods
+            mock_processor.preprocess_image_if_needed.return_value = b'processed_image_data'
+            mock_processor.image_to_base64.return_value = "data:image/jpeg;base64,mockdata"
+            
+            # Set up context manager behavior
             mock_processor.__enter__ = Mock(return_value=mock_processor)
             mock_processor.__exit__ = Mock(return_value=None)
             mock_processor_class.return_value = mock_processor
             
-            # Mock Responses API
+            # Set circuit breaker to allow Responses API
             openai_service.responses_api_available = True
+            openai_service.api_check_timestamp = time.time()
+            openai_service.api_failure_count = 0
             openai_service.client.responses.create.return_value = sample_responses_api_response
             
             # Mock LINE Bot API
@@ -845,9 +856,15 @@ class TestOpenAIService:
             assert result['success'] is True
             assert result['message'] == "Hello! How can I help you today?"
             
-            # Verify ImageProcessor was initialized correctly
-            mock_processor_class.assert_called_once_with(mock_line_bot_api, message_id)
-            mock_processor.to_base64.assert_called_once()
+            # Verify ImageProcessor was used as context manager
+            mock_processor_class.assert_called_once_with()
+            mock_processor.__enter__.assert_called_once()
+            mock_processor.__exit__.assert_called_once()
+            
+            # Verify image processing methods were called
+            mock_processor.download_image_from_line.assert_called_once_with(mock_line_bot_api, message_id)
+            mock_processor.preprocess_image_if_needed.assert_called_once()
+            mock_processor.image_to_base64.assert_called_once()
     
     def test_responses_api_streaming_fallback_on_error(self, openai_service, sample_openai_streaming_response):
         """Test streaming falls back to Chat Completions on Responses API error"""
