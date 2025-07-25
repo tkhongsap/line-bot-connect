@@ -1,4 +1,5 @@
 import logging
+from typing import Optional, Dict, Any
 from openai import AzureOpenAI
 from ..utils.prompt_manager import PromptManager
 
@@ -397,13 +398,28 @@ class OpenAIService:
         try:
             from ..utils.image_utils import ImageProcessor
             
-            # Process the image
-            with ImageProcessor(line_bot_api, message_id) as processor:
-                # Convert image to base64 for API
-                image_base64 = processor.to_base64()
-                image_metadata = processor.get_metadata()
+            # Initialize image processor
+            processor = ImageProcessor()
+            
+            try:
+                # Download and process the image
+                download_result = processor.download_image_from_line(line_bot_api, message_id)
                 
-                logger.info(f"Processing image for user {user_id}: {image_metadata['format']} ({image_metadata['size_bytes']} bytes)")
+                if not download_result['success']:
+                    logger.error(f"Failed to download image: {download_result['error']}")
+                    return {
+                        'success': False,
+                        'error': download_result['error'],
+                        'message': None
+                    }
+                
+                # Preprocess image if needed
+                processed_image_data = processor.preprocess_image_if_needed(download_result['image_data'])
+                
+                # Convert to base64 for OpenAI API
+                image_base64 = processor.image_to_base64(processed_image_data, download_result['format'])
+                
+                logger.info(f"Processing image for user {user_id}: {download_result['format']} ({download_result['size']} bytes)")
                 
                 # Use the main get_response method with image data
                 return self.get_response(
@@ -413,6 +429,10 @@ class OpenAIService:
                     image_data=image_base64
                 )
                     
+            finally:
+                # Always cleanup temporary files
+                processor.cleanup_temp_files()
+                    
         except Exception as e:
             logger.error(f"Vision API error for user {user_id}: {str(e)}")
             return {
@@ -421,7 +441,7 @@ class OpenAIService:
                 'message': None
             }
 
-    def _create_message_with_image_chat_completions(self, text_content: str, image_data: str = None):
+    def _create_message_with_image_chat_completions(self, text_content: str, image_data=None):
         """Create message structure with optional image for Chat Completions API"""
         if not image_data:
             return {

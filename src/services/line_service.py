@@ -131,27 +131,35 @@ class LineService:
                 # Download and process the image
                 download_result = image_processor.download_image_from_line(self.line_bot_api, message_id)
                 
-                if not download_result['success']:
+                if not download_result or not download_result.get('success', False):
                     # Handle download/validation errors
-                    error_code = download_result.get('error_code', 'UNKNOWN')
+                    error_code = download_result.get('error_code', 'UNKNOWN') if download_result else 'DOWNLOAD_FAILED'
+                    error_details = download_result.get('error', 'Unknown error') if download_result else 'Failed to download image'
+                    
+                    logger.error(f"Image download failed for user {user_id[:8]}...: {error_code} - {error_details}")
                     
                     if error_code == 'FILE_TOO_LARGE':
-                        error_msg = "圖像文件太大（最大5MB）。請發送較小的圖像。\nImage file too large (max 5MB). Please send a smaller image."
+                        error_msg = "圖像文件太大（最大10MB）。請發送較小的圖像。\nImage file too large (max 10MB). Please send a smaller image."
                     elif error_code == 'UNSUPPORTED_FORMAT':
-                        error_msg = "不支持的圖像格式。請發送 JPG、PNG、GIF 或 WEBP 圖像。\nUnsupported image format. Please send JPG, PNG, GIF or WEBP images."
+                        error_msg = "不支持的圖像格式。請發送 JPG、PNG、GIF、WEBP、HEIC 或 HEIF 圖像。\nUnsupported image format. Please send JPG, PNG, GIF, WEBP, HEIC or HEIF images."
                     elif error_code == 'DOWNLOAD_TIMEOUT':
                         error_msg = "圖像下載超時。請檢查網絡連接並重試。\nImage download timed out. Please check your connection and try again."
                     else:
-                        error_msg = f"圖像處理失敗：{download_result['error']}\nImage processing failed: {download_result['error']}"
+                        error_msg = f"圖像處理失敗：{error_details}\nImage processing failed: {error_details}"
                     
                     self._send_message(event.reply_token, error_msg)
                     return
                 
                 # Preprocess image if needed
-                processed_image_data = image_processor.preprocess_image_if_needed(download_result['image_data'])
+                image_data = download_result.get('image_data', b'')
+                image_format = download_result.get('format', 'JPEG')
+                logger.info(f"Processing {image_format} image ({len(image_data)} bytes) for user {user_id[:8]}...")
+                
+                processed_image_data = image_processor.preprocess_image_if_needed(image_data)
                 
                 # Convert to base64 for OpenAI API
-                base64_image = image_processor.image_to_base64(processed_image_data, download_result['format'])
+                base64_image = image_processor.image_to_base64(processed_image_data, image_format)
+                logger.debug(f"Converted image to base64 format for OpenAI API")
                 
                 # Get accompanying text or default prompt
                 user_text = "What can you tell me about this image?"
@@ -174,8 +182,8 @@ class LineService:
                     # Log success
                     tokens_used = ai_response.get('tokens_used', 0)
                     logger.info(f"Sent image analysis response to user {user_id[:8]}... "
-                               f"[{tokens_used} tokens, {download_result['size']} bytes, "
-                               f"{download_result['dimensions'][0]}x{download_result['dimensions'][1]}]")
+                               f"[{tokens_used} tokens, {download_result.get('size', 0)} bytes, "
+                               f"{download_result.get('dimensions', (0, 0))[0]}x{download_result.get('dimensions', (0, 0))[1]}]")
                 else:
                     # AI processing failed, send error
                     error_msg = "圖像分析失敗，請稍後再試。\nImage analysis failed, please try again later."
@@ -195,47 +203,6 @@ class LineService:
                 pass
 
 
-
-
-
-    def _handle_image_message(self, event):
-        """Handle incoming image message from LINE user"""
-        try:
-            user_id = event.source.user_id
-            message_id = event.message.id
-            
-            logger.info(f"Received image from user {user_id[:8]}... (message_id: {message_id})")
-            
-            # Process image with OpenAI Vision
-            ai_response = self.openai_service.get_response_with_image(
-                user_id, 
-                message_id, 
-                self.line_bot_api,
-                use_streaming=False
-            )
-            
-            if ai_response['success']:
-                # Send response
-                self._send_message(event.reply_token, ai_response['message'])
-                
-                # Log response details
-                tokens_used = ai_response.get('tokens_used', 0)
-                logger.info(f"Sent image response to user {user_id[:8]}...: {len(ai_response['message'])} chars [{tokens_used} tokens]")
-                
-            else:
-                # Send error message in both languages
-                error_msg = "很抱歉，我無法處理這張圖片。請確認圖片格式正確（JPG、PNG或GIF）並重試。\n\nSorry, I couldn't process this image. Please make sure the image format is correct (JPG, PNG, or GIF) and try again."
-                self._send_message(event.reply_token, error_msg)
-                logger.error(f"Failed to process image: {ai_response['error']}")
-                
-        except Exception as e:
-            logger.error(f"Error handling image message: {str(e)}")
-            # Send generic error message
-            try:
-                error_msg = "處理圖片時發生錯誤，請稍後再試。\nError processing image, please try again later."
-                self._send_message(event.reply_token, error_msg)
-            except:
-                pass  # If we can't even send error message, just log and continue
 
     def _send_message(self, reply_token, message_text):
         """Send message back to LINE user"""
