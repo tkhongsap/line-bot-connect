@@ -4,7 +4,10 @@
       "Bash(git add:*)",
       "Bash(ls:*)",
       "Bash(git checkout:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(python test_responses_api.py:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }
