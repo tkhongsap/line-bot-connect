@@ -22,6 +22,9 @@ from src.services.conversation_factory import create_conversation_service
 from src.config.settings import Settings
 from src.utils.security import setup_cors, validate_webhook_ip
 
+# Import admin routes
+from src.routes.admin_routes import admin_bp
+
 # Create Flask app
 app = Flask(__name__)
 
@@ -50,6 +53,9 @@ limiter = Limiter(
 
 # Setup CORS and security headers
 app = setup_cors(app)
+
+# Register admin blueprint
+app.register_blueprint(admin_bp)
 
 # Initialize settings
 settings = Settings()

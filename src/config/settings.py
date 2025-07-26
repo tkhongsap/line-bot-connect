@@ -32,6 +32,16 @@ class Settings:
         self.MAX_MESSAGES_PER_USER = int(os.environ.get("MAX_MESSAGES_PER_USER", "100"))
         self.MAX_TOTAL_CONVERSATIONS = int(os.environ.get("MAX_TOTAL_CONVERSATIONS", "1000"))
         
+        # Rich Message Configuration
+        self.RICH_MESSAGE_ENABLED = os.environ.get("RICH_MESSAGE_ENABLED", "false").lower() == "true"
+        self.RICH_MESSAGE_DEFAULT_SEND_HOUR = int(os.environ.get("RICH_MESSAGE_DEFAULT_SEND_HOUR", "9"))
+        self.RICH_MESSAGE_TIMEZONE_AWARE = os.environ.get("RICH_MESSAGE_TIMEZONE_AWARE", "true").lower() == "true"
+        self.RICH_MESSAGE_ANALYTICS_ENABLED = os.environ.get("RICH_MESSAGE_ANALYTICS_ENABLED", "true").lower() == "true"
+        self.RICH_MESSAGE_TEMPLATE_CACHE_HOURS = int(os.environ.get("RICH_MESSAGE_TEMPLATE_CACHE_HOURS", "24"))
+        self.RICH_MESSAGE_CONTENT_CACHE_HOURS = int(os.environ.get("RICH_MESSAGE_CONTENT_CACHE_HOURS", "6"))
+        self.RICH_MESSAGE_MAX_RETRIES = int(os.environ.get("RICH_MESSAGE_MAX_RETRIES", "3"))
+        self.RICH_MESSAGE_BATCH_SIZE = int(os.environ.get("RICH_MESSAGE_BATCH_SIZE", "100"))
+        
         # Validate required settings
         self._validate_settings()
     
@@ -68,5 +78,11 @@ class Settings:
             "max_total_conversations": self.MAX_TOTAL_CONVERSATIONS,
             "line_channel_configured": bool(self.LINE_CHANNEL_ACCESS_TOKEN),
             "azure_openai_configured": bool(self.AZURE_OPENAI_API_KEY),
-            "api_type": "Azure OpenAI Responses API"  # Updated to reflect new API usage
+            "api_type": "Azure OpenAI Responses API",  # Updated to reflect new API usage
+            "rich_message_enabled": self.RICH_MESSAGE_ENABLED,
+            "rich_message_send_hour": self.RICH_MESSAGE_DEFAULT_SEND_HOUR,
+            "rich_message_timezone_aware": self.RICH_MESSAGE_TIMEZONE_AWARE,
+            "rich_message_analytics": self.RICH_MESSAGE_ANALYTICS_ENABLED,
+            "rich_message_max_retries": self.RICH_MESSAGE_MAX_RETRIES,
+            "rich_message_batch_size": self.RICH_MESSAGE_BATCH_SIZE
         }
