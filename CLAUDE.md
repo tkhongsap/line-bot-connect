@@ -35,6 +35,12 @@ uv run pytest tests/unit/test_openai_service.py -v
 
 # Run specific test
 uv run pytest tests/unit/test_openai_service.py::TestOpenAIService::test_web_search_rate_limiting -v
+
+# Alternative commands via Makefile
+make test      # Run all tests
+make coverage  # Run tests with coverage
+make lint      # Run linting checks
+make clean     # Clean test artifacts
 ```
 
 ### Dependency Management
