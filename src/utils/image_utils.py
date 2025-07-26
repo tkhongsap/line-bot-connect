@@ -63,6 +63,30 @@ class ImageProcessor:
     
     def __init__(self):
         self.temp_files = []  # Track temporary files for cleanup
+        self._cleanup_completed = False  # Track cleanup state
+    
+    def __enter__(self):
+        """Context manager entry point"""
+        logger.debug("ImageProcessor context manager entered")
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit point - ensures cleanup even if exceptions occur"""
+        try:
+            if exc_type:
+                logger.warning(f"ImageProcessor exiting due to exception: {exc_type.__name__}: {exc_val}")
+            else:
+                logger.debug("ImageProcessor context manager exiting normally")
+            
+            # Always attempt cleanup
+            self.cleanup_temp_files()
+            
+        except Exception as cleanup_error:
+            logger.error(f"Error during ImageProcessor cleanup in __exit__: {cleanup_error}")
+            # Don't suppress the original exception, just log the cleanup error
+        
+        # Return False to propagate any exception that occurred in the with block
+        return False
     
     def download_image_from_line(self, line_bot_api, message_id: str, timeout_seconds: int = 10) -> Optional[Dict]:
         """
@@ -432,32 +456,62 @@ class ImageProcessor:
             return image
     
     def cleanup_temp_files(self):
-        """Clean up all temporary files created by this instance"""
+        """Clean up all temporary files created by this instance with robust error handling"""
+        # Prevent duplicate cleanup attempts
+        if self._cleanup_completed:
+            logger.debug("Cleanup already completed, skipping")
+            return
+        
+        if not self.temp_files:
+            logger.debug("No temporary files to clean up")
+            self._cleanup_completed = True
+            return
+        
         cleaned_count = 0
+        failed_count = 0
+        failed_files = []
+        
+        logger.debug(f"Starting cleanup of {len(self.temp_files)} temporary files")
+        
         for temp_path in self.temp_files:
             try:
                 if os.path.exists(temp_path):
                     os.unlink(temp_path)
                     cleaned_count += 1
-                    logger.debug(f"Cleaned up temporary file: {temp_path}")
-            except Exception as e:
+                    logger.debug(f"Successfully cleaned up temporary file: {temp_path}")
+                else:
+                    logger.debug(f"Temporary file already removed: {temp_path}")
+            except OSError as e:
+                failed_count += 1
+                failed_files.append(temp_path)
                 logger.warning(f"Failed to cleanup temporary file {temp_path}: {str(e)}")
+            except Exception as e:
+                failed_count += 1
+                failed_files.append(temp_path)
+                logger.error(f"Unexpected error cleaning up temporary file {temp_path}: {str(e)}")
         
+        # Clear the list regardless of individual cleanup success
         self.temp_files.clear()
+        self._cleanup_completed = True
+        
+        # Log summary
         if cleaned_count > 0:
-            logger.info(f"Cleaned up {cleaned_count} temporary image files")
+            logger.info(f"Successfully cleaned up {cleaned_count} temporary image files")
+        
+        if failed_count > 0:
+            logger.warning(f"Failed to clean up {failed_count} temporary files: {failed_files}")
+        
+        if cleaned_count == 0 and failed_count == 0:
+            logger.debug("Cleanup completed - no files required removal")
     
-    def __del__(self):
-        """Ensure cleanup on object destruction"""
-        self.cleanup_temp_files()
 
 # Convenience functions for backward compatibility
 def download_image_from_line(line_bot_api, message_id: str) -> Optional[Dict]:
     """Convenience function to download image from LINE"""
-    processor = ImageProcessor()
-    return processor.download_image_from_line(line_bot_api, message_id)
+    with ImageProcessor() as processor:
+        return processor.download_image_from_line(line_bot_api, message_id)
 
 def image_to_base64(image_data: bytes, image_format: str) -> str:
     """Convenience function to convert image to base64"""
-    processor = ImageProcessor()
-    return processor.image_to_base64(image_data, image_format)
+    with ImageProcessor() as processor:
+        return processor.image_to_base64(image_data, image_format)

@@ -318,77 +318,95 @@ class TestOpenAIService:
         assert messages[-1]['role'] == 'user'
         assert messages[-1]['content'] == "Test message"
     
-    def test_responses_api_availability_check_success(self, openai_service, sample_responses_api_response):
-        """Test successful Responses API availability check"""
-        # Reset the cached availability state
+    def test_circuit_breaker_default_state(self, openai_service):
+        """Test circuit breaker defaults to Responses API when no cached state"""
+        # Reset all circuit breaker state
         openai_service.responses_api_available = None
+        openai_service.api_check_timestamp = None
+        openai_service.api_failure_count = 0
         
-        # Mock successful Responses API test call
-        openai_service.client.responses.create.return_value = sample_responses_api_response
-        
-        # Check availability
-        result = openai_service._check_responses_api_availability()
+        # Should default to trying Responses API
+        result = openai_service._should_use_responses_api()
         
         assert result is True
         assert openai_service.responses_api_available is True
-        
-        # Verify the test call was made
-        openai_service.client.responses.create.assert_called_once_with(
-            model="gpt-4.1-nano",
-            input="test",
-            max_output_tokens=1,
-            store=False
-        )
     
-    def test_responses_api_availability_check_404(self, openai_service, mock_responses_api_404_error):
-        """Test Responses API availability check with 404 error"""
-        # Reset the cached availability state
+    def test_circuit_breaker_failure_tracking(self, openai_service):
+        """Test circuit breaker failure tracking and fallback"""
+        import time
+        
+        # Reset state
         openai_service.responses_api_available = None
+        openai_service.api_failure_count = 0
+        openai_service.api_check_timestamp = time.time()
         
-        # Mock 404 error
-        openai_service.client.responses.create.side_effect = mock_responses_api_404_error
+        # Simulate 404 error (permanent failure)
+        error_404 = Exception("404 not found")
+        openai_service._record_api_failure(error_404)
         
-        # Check availability
-        result = openai_service._check_responses_api_availability()
+        # Should immediately disable Responses API for 404 errors
+        assert openai_service.responses_api_available is False
+        assert openai_service.api_failure_count == openai_service.max_failures_before_fallback
+    
+    def test_circuit_breaker_temporary_failures(self, openai_service):
+        """Test circuit breaker with temporary failures"""
+        import time
         
-        assert result is False
+        # Reset state
+        openai_service.responses_api_available = True
+        openai_service.api_failure_count = 0
+        openai_service.api_check_timestamp = time.time()
+        
+        # Simulate temporary errors (not 404)
+        temp_error = Exception("Rate limit exceeded")
+        
+        # First two failures should not disable API
+        openai_service._record_api_failure(temp_error)
+        assert openai_service.api_failure_count == 1
+        assert openai_service.responses_api_available is True
+        
+        openai_service._record_api_failure(temp_error)
+        assert openai_service.api_failure_count == 2
+        assert openai_service.responses_api_available is True
+        
+        # Third failure should disable API temporarily
+        openai_service._record_api_failure(temp_error)
+        assert openai_service.api_failure_count == 3
         assert openai_service.responses_api_available is False
     
-    def test_responses_api_availability_check_other_error(self, openai_service, mock_responses_api_other_error):
-        """Test Responses API availability check with other errors"""
-        # Reset the cached availability state
+    def test_circuit_breaker_ttl_caching(self, openai_service):
+        """Test circuit breaker TTL caching behavior"""
+        import time
+        
+        # Set recent cached state
+        current_time = time.time()
+        openai_service.responses_api_available = True
+        openai_service.api_check_timestamp = current_time
+        openai_service.api_failure_count = 0
+        
+        # Should use cached value within TTL
+        result = openai_service._should_use_responses_api()
+        assert result is True
+        
+        # Simulate TTL expiry by setting old timestamp
+        openai_service.api_check_timestamp = current_time - 400  # Older than 300s TTL
         openai_service.responses_api_available = None
         
-        # Mock other error
-        openai_service.client.responses.create.side_effect = mock_responses_api_other_error
-        
-        # Check availability - should return False but not cache
-        result = openai_service._check_responses_api_availability()
-        
-        assert result is False
-        assert openai_service.responses_api_available is None  # Not cached
-    
-    def test_responses_api_availability_caching(self, openai_service):
-        """Test that availability check result is cached"""
-        # Set cached state
-        openai_service.responses_api_available = True
-        
-        # Mock should not be called
-        openai_service.client.responses.create.reset_mock()
-        
-        # Check availability - should use cached value
-        result = openai_service._check_responses_api_availability()
-        
+        # Should default to Responses API when cache expired
+        result = openai_service._should_use_responses_api()
         assert result is True
-        openai_service.client.responses.create.assert_not_called()
     
     def test_hybrid_api_selection_responses_available(self, openai_service, sample_responses_api_response):
-        """Test that Responses API is used when available"""
+        """Test that Responses API is used when circuit breaker allows it"""
+        import time
+        
         user_id = "test_user"
         user_message = "Hello"
         
-        # Mock Responses API as available
+        # Set circuit breaker to allow Responses API
         openai_service.responses_api_available = True
+        openai_service.api_check_timestamp = time.time()
+        openai_service.api_failure_count = 0
         openai_service.client.responses.create.return_value = sample_responses_api_response
         
         result = openai_service.get_response(user_id, user_message, use_streaming=False)
@@ -795,25 +813,36 @@ class TestOpenAIService:
     
     def test_get_response_with_image_via_line_api(self, openai_service, sample_responses_api_response):
         """Test get_response_with_image method that processes LINE images"""
+        import time
+        
         user_id = "test_user"
         message_id = "msg_123"
         
         # Mock the ImageProcessor with the correct import path
         with patch('src.utils.image_utils.ImageProcessor') as mock_processor_class:
             mock_processor = Mock()
-            mock_processor.to_base64.return_value = "data:image/jpeg;base64,mockdata"
-            mock_processor.get_metadata.return_value = {
+            
+            # Mock the download_image_from_line method to return success
+            mock_processor.download_image_from_line.return_value = {
+                'success': True,
+                'image_data': b'mock_image_data',
                 'format': 'JPEG',
-                'size_bytes': 1024,
-                'width': 800,
-                'height': 600
+                'size': 1024
             }
+            
+            # Mock image processing methods
+            mock_processor.preprocess_image_if_needed.return_value = b'processed_image_data'
+            mock_processor.image_to_base64.return_value = "data:image/jpeg;base64,mockdata"
+            
+            # Set up context manager behavior
             mock_processor.__enter__ = Mock(return_value=mock_processor)
             mock_processor.__exit__ = Mock(return_value=None)
             mock_processor_class.return_value = mock_processor
             
-            # Mock Responses API
+            # Set circuit breaker to allow Responses API
             openai_service.responses_api_available = True
+            openai_service.api_check_timestamp = time.time()
+            openai_service.api_failure_count = 0
             openai_service.client.responses.create.return_value = sample_responses_api_response
             
             # Mock LINE Bot API
@@ -827,9 +856,15 @@ class TestOpenAIService:
             assert result['success'] is True
             assert result['message'] == "Hello! How can I help you today?"
             
-            # Verify ImageProcessor was initialized correctly
-            mock_processor_class.assert_called_once_with(mock_line_bot_api, message_id)
-            mock_processor.to_base64.assert_called_once()
+            # Verify ImageProcessor was used as context manager
+            mock_processor_class.assert_called_once_with()
+            mock_processor.__enter__.assert_called_once()
+            mock_processor.__exit__.assert_called_once()
+            
+            # Verify image processing methods were called
+            mock_processor.download_image_from_line.assert_called_once_with(mock_line_bot_api, message_id)
+            mock_processor.preprocess_image_if_needed.assert_called_once()
+            mock_processor.image_to_base64.assert_called_once()
     
     def test_responses_api_streaming_fallback_on_error(self, openai_service, sample_openai_streaming_response):
         """Test streaming falls back to Chat Completions on Responses API error"""

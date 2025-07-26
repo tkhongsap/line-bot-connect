@@ -124,10 +124,8 @@ class LineService:
             # Import image utilities
             from src.utils.image_utils import ImageProcessor
             
-            # Initialize image processor
-            image_processor = ImageProcessor()
-            
-            try:
+            # Use context manager for automatic cleanup
+            with ImageProcessor() as image_processor:
                 # Download and process the image
                 download_result = image_processor.download_image_from_line(self.line_bot_api, message_id)
                 
@@ -189,10 +187,6 @@ class LineService:
                     error_msg = "圖像分析失敗，請稍後再試。\nImage analysis failed, please try again later."
                     self._send_message(event.reply_token, error_msg)
                     logger.error(f"AI image analysis failed: {ai_response['error']}")
-                
-            finally:
-                # Always cleanup temporary files
-                image_processor.cleanup_temp_files()
                 
         except Exception as e:
             logger.error(f"Error handling image message: {str(e)}")
