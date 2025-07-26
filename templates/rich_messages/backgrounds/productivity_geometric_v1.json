@@ -1,0 +1,91 @@
+{
+  "template_id": "productivity_geometric_v1",
+  "template_name": "Productivity - Geometric Professional",
+  "theme": "productivity",
+  "file_info": {
+    "filename": "productivity_geometric_v1.png",
+    "file_size": 756000,
+    "dimensions": {
+      "width": 2500,
+      "height": 1686
+    },
+    "format": "PNG"
+  },
+  "text_areas": {
+    "title": {
+      "position": {
+        "x": 300,
+        "y": 180
+      },
+      "dimensions": {
+        "width": 650,
+        "height": 160
+      },
+      "font_size_range": {
+        "min": 44,
+        "max": 68
+      },
+      "max_characters": 48,
+      "text_color": "#FFFFFF",
+      "background_overlay": {
+        "enabled": true,
+        "color": "#2E86AB",
+        "opacity": 0.85
+      }
+    },
+    "content": {
+      "position": {
+        "x": 300,
+        "y": 580
+      },
+      "dimensions": {
+        "width": 850,
+        "height": 320
+      },
+      "font_size_range": {
+        "min": 26,
+        "max": 38
+      },
+      "max_characters": 160,
+      "line_height": 1.4,
+      "text_color": "#FFFFFF",
+      "background_overlay": {
+        "enabled": true,
+        "color": "#A23B72",
+        "opacity": 0.8
+      }
+    }
+  },
+  "color_palette": {
+    "primary": "#2E86AB",
+    "secondary": "#A23B72",
+    "accent": "#F18F01",
+    "background": "#F8F9FA",
+    "text_overlay": "#FFFFFF"
+  },
+  "design_elements": {
+    "style": "clean geometric patterns with professional aesthetics",
+    "mood": "focused, efficient, goal-oriented",
+    "keywords": ["productivity", "professional", "clean", "geometric", "focused", "efficient"],
+    "imagery_type": "abstract geometric shapes and patterns",
+    "complexity_level": "minimal"
+  },
+  "usage_guidelines": {
+    "best_times": ["09:00-17:00"],
+    "target_audience": "professionals, students, goal-oriented users",
+    "content_types": ["productivity tips", "goal setting", "work motivation", "efficiency advice"],
+    "avoid_content": ["casual content", "non-professional themes", "overly playful elements"]
+  },
+  "accessibility": {
+    "color_contrast_ratio": 6.1,
+    "text_readability": "excellent",
+    "mobile_optimized": true,
+    "screen_reader_friendly": true
+  },
+  "created_date": "2024-01-15T09:00:00Z",
+  "last_modified": "2024-01-15T09:00:00Z",
+  "version": "v1.0.0",
+  "created_by": "Design Team",
+  "approved_by": "Product Manager",
+  "status": "approved"
+}

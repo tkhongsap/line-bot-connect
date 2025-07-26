@@ -1,0 +1,102 @@
+{
+  "template_id": "general_motivation_inspiration_prince_01_v1",
+  "template_name": "General Motivation - Inspiration_Prince_01_V1",
+  "theme": "general_motivation",
+  "file_info": {
+    "filename": "general_motivation_inspiration_prince_01_v1.jpg",
+    "file_size": 945049,
+    "dimensions": {
+      "width": 2500,
+      "height": 1686
+    },
+    "format": "JPEG"
+  },
+  "text_areas": {
+    "title": {
+      "position": {
+        "x": 260,
+        "y": 170
+      },
+      "dimensions": {
+        "width": 600,
+        "height": 200
+      },
+      "font_size_range": {
+        "min": 48,
+        "max": 72
+      },
+      "max_characters": 50,
+      "text_color": "#FFFFFF",
+      "background_overlay": {
+        "enabled": true,
+        "color": "#4169E1",
+        "opacity": 0.8
+      }
+    },
+    "content": {
+      "position": {
+        "x": 260,
+        "y": 600
+      },
+      "dimensions": {
+        "width": 800,
+        "height": 300
+      },
+      "font_size_range": {
+        "min": 24,
+        "max": 36
+      },
+      "max_characters": 150,
+      "line_height": 1.5,
+      "text_color": "#FFFFFF",
+      "background_overlay": {
+        "enabled": true,
+        "color": "#FF69B4",
+        "opacity": 0.75
+      }
+    }
+  },
+  "color_palette": {
+    "primary": "#4169E1",
+    "secondary": "#FF69B4",
+    "accent": "#32CD32",
+    "background": "#F8F9FA",
+    "text_overlay": "#FFFFFF"
+  },
+  "design_elements": {
+    "style": "Universal motivation theme",
+    "mood": "general motivation",
+    "keywords": [
+      "general_motivation",
+      "converted",
+      "optimized"
+    ],
+    "imagery_type": "converted from original design",
+    "complexity_level": "moderate"
+  },
+  "usage_guidelines": {
+    "best_times": [
+      "any time"
+    ],
+    "target_audience": "general users",
+    "content_types": [
+      "motivational content",
+      "daily messages"
+    ],
+    "avoid_content": [
+      "inappropriate content"
+    ]
+  },
+  "accessibility": {
+    "color_contrast_ratio": 4.5,
+    "text_readability": "good",
+    "mobile_optimized": true,
+    "screen_reader_friendly": true
+  },
+  "created_date": "2025-07-26T14:16:30.341081+00:00",
+  "last_modified": "2025-07-26T14:16:30.341098+00:00",
+  "version": "v1.0.0",
+  "created_by": "Template Converter",
+  "approved_by": "System",
+  "status": "draft"
+}

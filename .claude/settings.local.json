@@ -16,7 +16,8 @@
       "Bash(cd:*)",
       "Bash(mv:*)",
       "Bash(python:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }

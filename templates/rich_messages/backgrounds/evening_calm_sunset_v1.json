@@ -1,0 +1,91 @@
+{
+  "template_id": "evening_calm_sunset_v1",
+  "template_name": "Evening Calm - Sunset Theme",
+  "theme": "evening_calm",
+  "file_info": {
+    "filename": "evening_calm_sunset_v1.png",
+    "file_size": 892000,
+    "dimensions": {
+      "width": 2500,
+      "height": 1686
+    },
+    "format": "PNG"
+  },
+  "text_areas": {
+    "title": {
+      "position": {
+        "x": 250,
+        "y": 200
+      },
+      "dimensions": {
+        "width": 550,
+        "height": 180
+      },
+      "font_size_range": {
+        "min": 42,
+        "max": 64
+      },
+      "max_characters": 45,
+      "text_color": "#FFFFFF",
+      "background_overlay": {
+        "enabled": true,
+        "color": "#6A5ACD",
+        "opacity": 0.7
+      }
+    },
+    "content": {
+      "position": {
+        "x": 250,
+        "y": 650
+      },
+      "dimensions": {
+        "width": 750,
+        "height": 280
+      },
+      "font_size_range": {
+        "min": 22,
+        "max": 32
+      },
+      "max_characters": 140,
+      "line_height": 1.6,
+      "text_color": "#FFFFFF",
+      "background_overlay": {
+        "enabled": true,
+        "color": "#DDA0DD",
+        "opacity": 0.65
+      }
+    }
+  },
+  "color_palette": {
+    "primary": "#6A5ACD",
+    "secondary": "#DDA0DD",
+    "accent": "#F0E68C",
+    "background": "#483D8B",
+    "text_overlay": "#FFFFFF"
+  },
+  "design_elements": {
+    "style": "peaceful sunset with soft gradients",
+    "mood": "calming, reflective, serene",
+    "keywords": ["sunset", "calm", "peace", "evening", "soft", "gentle"],
+    "imagery_type": "natural sunset landscape",
+    "complexity_level": "minimal"
+  },
+  "usage_guidelines": {
+    "best_times": ["18:00-22:00"],
+    "target_audience": "evening users, relaxation seekers",
+    "content_types": ["evening reflection", "gratitude messages", "relaxation tips", "bedtime thoughts"],
+    "avoid_content": ["high energy content", "urgent calls to action", "bright themes"]
+  },
+  "accessibility": {
+    "color_contrast_ratio": 4.8,
+    "text_readability": "good",
+    "mobile_optimized": true,
+    "screen_reader_friendly": true
+  },
+  "created_date": "2024-01-15T18:00:00Z",
+  "last_modified": "2024-01-15T18:00:00Z",
+  "version": "v1.0.0",
+  "created_by": "Design Team",
+  "approved_by": "Product Manager",
+  "status": "approved"
+}

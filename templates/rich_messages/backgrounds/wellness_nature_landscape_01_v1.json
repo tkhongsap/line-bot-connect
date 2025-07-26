@@ -1,0 +1,102 @@
+{
+  "template_id": "wellness_nature_landscape_01_v1",
+  "template_name": "Wellness - Landscape_01_V1",
+  "theme": "wellness",
+  "file_info": {
+    "filename": "wellness_nature_landscape_01_v1.jpg",
+    "file_size": 439781,
+    "dimensions": {
+      "width": 2500,
+      "height": 1686
+    },
+    "format": "JPEG"
+  },
+  "text_areas": {
+    "title": {
+      "position": {
+        "x": 220,
+        "y": 160
+      },
+      "dimensions": {
+        "width": 600,
+        "height": 200
+      },
+      "font_size_range": {
+        "min": 48,
+        "max": 72
+      },
+      "max_characters": 50,
+      "text_color": "#FFFFFF",
+      "background_overlay": {
+        "enabled": true,
+        "color": "#4A7C59",
+        "opacity": 0.8
+      }
+    },
+    "content": {
+      "position": {
+        "x": 220,
+        "y": 620
+      },
+      "dimensions": {
+        "width": 800,
+        "height": 300
+      },
+      "font_size_range": {
+        "min": 24,
+        "max": 36
+      },
+      "max_characters": 150,
+      "line_height": 1.5,
+      "text_color": "#FFFFFF",
+      "background_overlay": {
+        "enabled": true,
+        "color": "#8FBC8F",
+        "opacity": 0.75
+      }
+    }
+  },
+  "color_palette": {
+    "primary": "#4A7C59",
+    "secondary": "#8FBC8F",
+    "accent": "#F0F8FF",
+    "background": "#F8F9FA",
+    "text_overlay": "#FFFFFF"
+  },
+  "design_elements": {
+    "style": "Natural wellness theme",
+    "mood": "wellness",
+    "keywords": [
+      "wellness",
+      "converted",
+      "optimized"
+    ],
+    "imagery_type": "converted from original design",
+    "complexity_level": "moderate"
+  },
+  "usage_guidelines": {
+    "best_times": [
+      "07:00-19:00"
+    ],
+    "target_audience": "general users",
+    "content_types": [
+      "motivational content",
+      "daily messages"
+    ],
+    "avoid_content": [
+      "inappropriate content"
+    ]
+  },
+  "accessibility": {
+    "color_contrast_ratio": 4.5,
+    "text_readability": "good",
+    "mobile_optimized": true,
+    "screen_reader_friendly": true
+  },
+  "created_date": "2025-07-26T14:15:52.846335+00:00",
+  "last_modified": "2025-07-26T14:15:52.846351+00:00",
+  "version": "v1.0.0",
+  "created_by": "Template Converter",
+  "approved_by": "System",
+  "status": "draft"
+}

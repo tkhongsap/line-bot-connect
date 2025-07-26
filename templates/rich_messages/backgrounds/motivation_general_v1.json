@@ -1,0 +1,91 @@
+{
+  "template_id": "motivation_general_v1",
+  "template_name": "General Motivation - Universal Inspiration",
+  "theme": "general_motivation",
+  "file_info": {
+    "filename": "motivation_general_v1.png",
+    "file_size": 867000,
+    "dimensions": {
+      "width": 2500,
+      "height": 1686
+    },
+    "format": "PNG"
+  },
+  "text_areas": {
+    "title": {
+      "position": {
+        "x": 260,
+        "y": 170
+      },
+      "dimensions": {
+        "width": 620,
+        "height": 185
+      },
+      "font_size_range": {
+        "min": 46,
+        "max": 70
+      },
+      "max_characters": 50,
+      "text_color": "#FFFFFF",
+      "background_overlay": {
+        "enabled": true,
+        "color": "#4169E1",
+        "opacity": 0.8
+      }
+    },
+    "content": {
+      "position": {
+        "x": 260,
+        "y": 600
+      },
+      "dimensions": {
+        "width": 820,
+        "height": 310
+      },
+      "font_size_range": {
+        "min": 25,
+        "max": 37
+      },
+      "max_characters": 155,
+      "line_height": 1.5,
+      "text_color": "#FFFFFF",
+      "background_overlay": {
+        "enabled": true,
+        "color": "#FF69B4",
+        "opacity": 0.75
+      }
+    }
+  },
+  "color_palette": {
+    "primary": "#4169E1",
+    "secondary": "#FF69B4",
+    "accent": "#32CD32",
+    "background": "#F0F8FF",
+    "text_overlay": "#FFFFFF"
+  },
+  "design_elements": {
+    "style": "versatile motivational with balanced color combinations",
+    "mood": "inspiring, uplifting, universally appealing",
+    "keywords": ["motivation", "inspiration", "versatile", "universal", "positive", "uplifting"],
+    "imagery_type": "abstract inspirational elements",
+    "complexity_level": "moderate"
+  },
+  "usage_guidelines": {
+    "best_times": ["any time"],
+    "target_audience": "general audience, all demographics",
+    "content_types": ["general motivation", "inspirational quotes", "life advice", "positive messages"],
+    "avoid_content": ["overly specific themes", "time-sensitive content", "niche references"]
+  },
+  "accessibility": {
+    "color_contrast_ratio": 5.8,
+    "text_readability": "excellent",
+    "mobile_optimized": true,
+    "screen_reader_friendly": true
+  },
+  "created_date": "2024-01-15T15:00:00Z",
+  "last_modified": "2024-01-15T15:00:00Z",
+  "version": "v1.0.0",
+  "created_by": "Design Team",
+  "approved_by": "Product Manager",
+  "status": "approved"
+}

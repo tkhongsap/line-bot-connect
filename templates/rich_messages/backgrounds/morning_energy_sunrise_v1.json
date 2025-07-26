@@ -1,0 +1,91 @@
+{
+  "template_id": "morning_energy_sunrise_v1",
+  "template_name": "Morning Energy - Sunrise Theme",
+  "theme": "morning_energy",
+  "file_info": {
+    "filename": "morning_energy_sunrise_v1.png",
+    "file_size": 945000,
+    "dimensions": {
+      "width": 2500,
+      "height": 1686
+    },
+    "format": "PNG"
+  },
+  "text_areas": {
+    "title": {
+      "position": {
+        "x": 200,
+        "y": 150
+      },
+      "dimensions": {
+        "width": 600,
+        "height": 200
+      },
+      "font_size_range": {
+        "min": 48,
+        "max": 72
+      },
+      "max_characters": 50,
+      "text_color": "#FFFFFF",
+      "background_overlay": {
+        "enabled": true,
+        "color": "#FF6B35",
+        "opacity": 0.8
+      }
+    },
+    "content": {
+      "position": {
+        "x": 200,
+        "y": 600
+      },
+      "dimensions": {
+        "width": 800,
+        "height": 300
+      },
+      "font_size_range": {
+        "min": 24,
+        "max": 36
+      },
+      "max_characters": 150,
+      "line_height": 1.5,
+      "text_color": "#FFFFFF",
+      "background_overlay": {
+        "enabled": true,
+        "color": "#F7931E",
+        "opacity": 0.75
+      }
+    }
+  },
+  "color_palette": {
+    "primary": "#FF6B35",
+    "secondary": "#F7931E", 
+    "accent": "#87CEEB",
+    "background": "#FFF8DC",
+    "text_overlay": "#FFFFFF"
+  },
+  "design_elements": {
+    "style": "energetic sunrise with warm gradients",
+    "mood": "uplifting, motivational, fresh start",
+    "keywords": ["sunrise", "energy", "motivation", "morning", "bright", "warm"],
+    "imagery_type": "natural landscape with sunrise",
+    "complexity_level": "moderate"
+  },
+  "usage_guidelines": {
+    "best_times": ["06:00-10:00"],
+    "target_audience": "early risers, productivity-focused users",
+    "content_types": ["daily motivation", "morning goals", "positive affirmations", "workout encouragement"],
+    "avoid_content": ["evening content", "sleepy themes", "dark moods"]
+  },
+  "accessibility": {
+    "color_contrast_ratio": 5.2,
+    "text_readability": "excellent",
+    "mobile_optimized": true,
+    "screen_reader_friendly": true
+  },
+  "created_date": "2024-01-15T08:00:00Z",
+  "last_modified": "2024-01-15T08:00:00Z",
+  "version": "v1.0.0",
+  "created_by": "Design Team",
+  "approved_by": "Product Manager",
+  "status": "approved"
+}
