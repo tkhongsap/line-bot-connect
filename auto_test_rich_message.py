@@ -57,8 +57,8 @@ def auto_test_with_user_id(user_id, send_mode=False):
         if send_mode:
             # Real services for actual sending
             print("🔴 Initializing REAL services (will send message!)")
-            openai_service = OpenAIService(settings)
-            conversation_service = ConversationService(settings)
+            conversation_service = ConversationService()
+            openai_service = OpenAIService(settings, conversation_service)
             line_service = LineService(settings, openai_service, conversation_service)
             line_bot_api = line_service.line_bot_api
         else:
