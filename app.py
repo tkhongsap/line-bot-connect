@@ -1,7 +1,10 @@
 import os
 import logging
+import secrets
 from flask import Flask, request, render_template, jsonify
 from werkzeug.middleware.proxy_fix import ProxyFix
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 # LINE Bot Flask Application
 # This application provides webhook endpoints for LINE Bot integration with Azure OpenAI
@@ -15,19 +18,44 @@ logger = logging.getLogger(__name__)
 # Import services
 from src.services.line_service import LineService
 from src.services.openai_service import OpenAIService
-from src.services.conversation_service import ConversationService
+from src.services.conversation_factory import create_conversation_service
 from src.config.settings import Settings
+from src.utils.security import setup_cors, validate_webhook_ip
 
 # Create Flask app
 app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-change-in-production")
+
+# Secure session secret handling
+session_secret = os.environ.get("SESSION_SECRET")
+if not session_secret:
+    # Generate a cryptographically secure secret for development
+    # In production, SESSION_SECRET must be set as environment variable
+    if os.environ.get("DEBUG", "False").lower() == "true":
+        session_secret = secrets.token_urlsafe(32)
+        logger.warning("Generated random session secret for development. Set SESSION_SECRET env var in production!")
+    else:
+        raise ValueError("SESSION_SECRET environment variable is required in production")
+app.secret_key = session_secret
+
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
+# Configure rate limiting
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://",
+    headers_enabled=True  # Include rate limit headers in responses
+)
+
+# Setup CORS and security headers
+app = setup_cors(app)
 
 # Initialize settings
 settings = Settings()
 
 # Initialize services
-conversation_service = ConversationService()
+conversation_service = create_conversation_service()
 openai_service = OpenAIService(settings, conversation_service)
 line_service = LineService(settings, openai_service, conversation_service)
 
@@ -39,6 +67,8 @@ def index():
                          total_users=len(conversation_service.conversations))
 
 @app.route('/webhook', methods=['POST'])
+@limiter.limit("30 per minute")  # Allow 30 webhook calls per minute per IP
+@validate_webhook_ip  # Validate request comes from LINE servers
 def webhook():
     """LINE webhook endpoint"""
     try:
@@ -70,6 +100,7 @@ def webhook_verification():
     return 'Webhook endpoint is active', 200
 
 @app.route('/health')
+@limiter.limit("60 per minute")  # Health checks can be more frequent
 def health_check():
     """Health check endpoint"""
     return jsonify({
@@ -83,6 +114,7 @@ def health_check():
     })
 
 @app.route('/conversations')
+@limiter.limit("10 per minute")  # Limit conversation status checks
 def conversations_status():
     """Get conversation statistics"""
     return jsonify({
@@ -98,4 +130,6 @@ def conversations_status():
     })
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    # Only enable debug mode if explicitly set in environment
+    debug_mode = os.environ.get("DEBUG", "False").lower() == "true"
+    app.run(host="0.0.0.0", port=5000, debug=debug_mode)
