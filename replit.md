@@ -65,7 +65,39 @@ Preferred communication style: Simple, everyday language.
   - Support for LINE credentials and Azure OpenAI configuration
   - Development and production configuration separation
 
-# Recent Changes (January 2024)
+# Recent Changes
+
+## Rich Message Automation Testing System (July 2025)
+- ✅ **Rich Message Testing Scripts**: Created comprehensive testing tools for safe rich message automation
+- ✅ **Template System**: 50+ beautiful templates available (Little Prince, motivation, nature, productivity themes)
+- ✅ **Personal Testing**: Safe testing mode to send rich messages to yourself only (no broadcast)
+- ✅ **Interactive Features**: Rich messages include Like, Share, Save, React buttons for engagement tracking
+- ✅ **User ID Capture**: Automated tool to capture LINE User ID for testing
+- ✅ **Multiple Test Scripts**: Quick test, advanced template selection, and user ID helper tools
+
+## Rich Message Testing Tools Added
+1. **Quick Rich Test** (`quick_rich_test.py`)
+   - Simple one-command testing
+   - Mock mode for safe testing
+   - Live send mode for actual delivery
+   
+2. **Advanced Template Testing** (`send_test_rich_message.py`)
+   - Interactive menu with 6+ template options
+   - Theme-based content generation
+   - Template preview and selection
+
+3. **User ID Capture** (`get_my_user_id.py`)
+   - Automated LINE User ID detection
+   - Webhook monitoring for ID capture
+   - Safe file-based ID storage
+
+## Technical Features Added
+- **Service Constructor Fixes**: Corrected API parameter issues in all test scripts
+- **Template Management**: Metadata-driven template selection system
+- **Interactive Buttons**: Like, Share, Save, React functionality with analytics
+- **Safe Testing Architecture**: Mock mode prevents accidental broadcasting to all users
+
+# Previous Changes (January 2024)
 
 ## Image Understanding Feature Implementation
 - ✅ **ImageMessage Handler**: Added support for image messages in LINE service
