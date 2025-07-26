@@ -39,7 +39,7 @@ class ConversationService:
                 message = {
                     "role": role,  # "user" or "assistant"
                     "content": content,
-                    "message_type": message_type,  # "text", "image", "mixed"
+                    "message_type": message_type,  # "text", "image", "file", "mixed"
                     "metadata": metadata or {},
                     "timestamp": datetime.now()
                 }
