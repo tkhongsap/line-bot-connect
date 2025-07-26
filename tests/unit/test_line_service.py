@@ -306,3 +306,28 @@ class TestLineService:
         # Check that truncated user ID is in logs
         truncated_id = sample_line_message_event.source.user_id[:8]
         assert truncated_id in log_output
+
+    def test_handle_file_message_success(self, line_service, sample_line_file_event):
+        """Test file message handling success"""
+        mock_download = {"success": True, "file_data": b"data", "size": 4}
+        with patch("src.utils.file_utils.FileProcessor.download_file_from_line", return_value=mock_download):
+            mock_ai_response = {"success": True, "message": "File ok", "tokens_used": 10}
+            line_service.openai_service.get_response = Mock(return_value=mock_ai_response)
+            line_service._send_message = Mock()
+
+            line_service._handle_file_message(sample_line_file_event)
+
+            line_service.openai_service.get_response.assert_called_once()
+            line_service._send_message.assert_called_once_with(sample_line_file_event.reply_token, "File ok")
+
+    def test_handle_file_message_failure(self, line_service, sample_line_file_event):
+        """Test file message handling when AI fails"""
+        mock_download = {"success": True, "file_data": b"data", "size": 4}
+        with patch("src.utils.file_utils.FileProcessor.download_file_from_line", return_value=mock_download):
+            mock_ai_response = {"success": False, "error": "bad", "message": None}
+            line_service.openai_service.get_response = Mock(return_value=mock_ai_response)
+            line_service._send_message = Mock()
+
+            line_service._handle_file_message(sample_line_file_event)
+
+            line_service._send_message.assert_called_once()

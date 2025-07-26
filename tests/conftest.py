@@ -106,6 +106,17 @@ def sample_line_message_event():
 
 
 @pytest.fixture
+def sample_line_file_event():
+    """Sample LINE file message event for testing"""
+    event = Mock()
+    event.source.user_id = "test_user_123"
+    event.message.id = "file_msg_123"
+    event.message.file_name = "test.pdf"
+    event.reply_token = "reply_token_file"
+    return event
+
+
+@pytest.fixture
 def sample_openai_response():
     """Sample OpenAI API response"""
     response = Mock()
