@@ -1,0 +1,429 @@
+{
+  "template_metadata": {
+    "inspiration_cardistry_01.png": {
+      "theme": "inspiration",
+      "mood": "creative",
+      "energy_level": "medium",
+      "best_for": ["creativity", "skill_development", "artistic_pursuits"],
+      "time_of_day": ["afternoon", "evening"],
+      "content_type": ["motivational_quotes", "creativity_tips"],
+      "text_areas": {
+        "primary": {"x": 200, "y": 150, "width": 2100, "height": 400},
+        "secondary": {"x": 300, "y": 1200, "width": 1900, "height": 200}
+      }
+    },
+    "inspiration_creative_01.png": {
+      "theme": "inspiration",
+      "mood": "creative",
+      "energy_level": "high",
+      "best_for": ["creative_work", "artistic_inspiration", "innovation"],
+      "time_of_day": ["morning", "afternoon"],
+      "content_type": ["creativity_quotes", "artistic_tips", "innovation_advice"],
+      "text_areas": {
+        "primary": {"x": 150, "y": 200, "width": 2200, "height": 450},
+        "secondary": {"x": 250, "y": 1150, "width": 2000, "height": 250}
+      }
+    },
+    "inspiration_gameboy_01.png": {
+      "theme": "inspiration",
+      "mood": "nostalgic",
+      "energy_level": "medium",
+      "best_for": ["gaming", "technology", "nostalgia", "innovation"],
+      "time_of_day": ["evening", "weekend"],
+      "content_type": ["tech_quotes", "innovation_tips", "nostalgia_content"],
+      "text_areas": {
+        "primary": {"x": 300, "y": 100, "width": 1900, "height": 400},
+        "secondary": {"x": 200, "y": 1300, "width": 2100, "height": 200}
+      }
+    },
+    "inspiration_musical_01.png": {
+      "theme": "inspiration",
+      "mood": "artistic",
+      "energy_level": "medium",
+      "best_for": ["music", "arts", "creativity", "harmony"],
+      "time_of_day": ["afternoon", "evening"],
+      "content_type": ["artistic_quotes", "music_inspiration", "harmony_tips"],
+      "text_areas": {
+        "primary": {"x": 250, "y": 300, "width": 2000, "height": 400},
+        "secondary": {"x": 350, "y": 1100, "width": 1800, "height": 250}
+      }
+    },
+    "inspiration_prince_01.png": {
+      "theme": "inspiration",
+      "mood": "whimsical",
+      "energy_level": "medium",
+      "best_for": ["storytelling", "imagination", "wisdom", "philosophy"],
+      "time_of_day": ["evening", "bedtime"],
+      "content_type": ["wisdom_quotes", "philosophical_thoughts", "storytelling"],
+      "text_areas": {
+        "primary": {"x": 200, "y": 200, "width": 2100, "height": 450},
+        "secondary": {"x": 300, "y": 1200, "width": 1900, "height": 200}
+      }
+    },
+    "inspiration_silhouettes_01.png": {
+      "theme": "inspiration",
+      "mood": "contemplative",
+      "energy_level": "low",
+      "best_for": ["reflection", "unity", "togetherness", "support"],
+      "time_of_day": ["evening", "sunset"],
+      "content_type": ["reflection_quotes", "unity_messages", "support_content"],
+      "text_areas": {
+        "primary": {"x": 150, "y": 250, "width": 2200, "height": 400},
+        "secondary": {"x": 250, "y": 1150, "width": 2000, "height": 250}
+      }
+    },
+    "inspiration_sticker_01.png": {
+      "theme": "inspiration",
+      "mood": "playful",
+      "energy_level": "high",
+      "best_for": ["youth", "fun", "casual_motivation", "cheerfulness"],
+      "time_of_day": ["morning", "afternoon"],
+      "content_type": ["cheerful_quotes", "youth_motivation", "fun_tips"],
+      "text_areas": {
+        "primary": {"x": 300, "y": 150, "width": 1900, "height": 400},
+        "secondary": {"x": 200, "y": 1250, "width": 2100, "height": 200}
+      }
+    },
+    "inspiration_storybook_01.png": {
+      "theme": "inspiration",
+      "mood": "storytelling",
+      "energy_level": "medium",
+      "best_for": ["narrative", "imagination", "adventure", "curiosity"],
+      "time_of_day": ["afternoon", "evening"],
+      "content_type": ["story_quotes", "adventure_inspiration", "curiosity_tips"],
+      "text_areas": {
+        "primary": {"x": 250, "y": 200, "width": 2000, "height": 450},
+        "secondary": {"x": 350, "y": 1150, "width": 1800, "height": 250}
+      }
+    },
+    "inspiration_student_01.png": {
+      "theme": "inspiration",
+      "mood": "educational",
+      "energy_level": "medium",
+      "best_for": ["learning", "education", "student_life", "growth"],
+      "time_of_day": ["morning", "afternoon"],
+      "content_type": ["learning_quotes", "educational_tips", "study_motivation"],
+      "text_areas": {
+        "primary": {"x": 200, "y": 300, "width": 2100, "height": 400},
+        "secondary": {"x": 300, "y": 1100, "width": 1900, "height": 250}
+      }
+    },
+    "inspiration_uplifting_01.png": {
+      "theme": "inspiration",
+      "mood": "uplifting",
+      "energy_level": "high",
+      "best_for": ["general_motivation", "positivity", "encouragement", "hope"],
+      "time_of_day": ["morning", "midday"],
+      "content_type": ["uplifting_quotes", "positive_affirmations", "encouragement"],
+      "text_areas": {
+        "primary": {"x": 150, "y": 200, "width": 2200, "height": 450},
+        "secondary": {"x": 250, "y": 1200, "width": 2000, "height": 200}
+      }
+    },
+    "motivation_abstract_01.png": {
+      "theme": "motivation",
+      "mood": "abstract",
+      "energy_level": "medium",
+      "best_for": ["deep_thinking", "philosophy", "abstract_concepts", "innovation"],
+      "time_of_day": ["afternoon", "evening"],
+      "content_type": ["philosophical_quotes", "deep_thoughts", "innovation_tips"],
+      "text_areas": {
+        "primary": {"x": 300, "y": 250, "width": 1900, "height": 400},
+        "secondary": {"x": 200, "y": 1150, "width": 2100, "height": 250}
+      }
+    },
+    "motivation_bright_01.png": {
+      "theme": "motivation",
+      "mood": "bright",
+      "energy_level": "high",
+      "best_for": ["morning_motivation", "energy_boost", "optimism", "new_beginnings"],
+      "time_of_day": ["morning", "early_afternoon"],
+      "content_type": ["morning_quotes", "energy_boosters", "optimistic_messages"],
+      "text_areas": {
+        "primary": {"x": 200, "y": 150, "width": 2100, "height": 450},
+        "secondary": {"x": 300, "y": 1200, "width": 1900, "height": 200}
+      }
+    },
+    "motivation_energy_01.png": {
+      "theme": "motivation",
+      "mood": "energetic",
+      "energy_level": "very_high",
+      "best_for": ["workout", "action", "determination", "power"],
+      "time_of_day": ["morning", "pre_workout"],
+      "content_type": ["workout_quotes", "action_motivation", "power_statements"],
+      "text_areas": {
+        "primary": {"x": 150, "y": 200, "width": 2200, "height": 400},
+        "secondary": {"x": 250, "y": 1250, "width": 2000, "height": 200}
+      }
+    },
+    "motivation_gorilla_01.png": {
+      "theme": "motivation",
+      "mood": "powerful",
+      "energy_level": "high",
+      "best_for": ["strength", "leadership", "confidence", "dominance"],
+      "time_of_day": ["morning", "midday"],
+      "content_type": ["strength_quotes", "leadership_tips", "confidence_boosters"],
+      "text_areas": {
+        "primary": {"x": 250, "y": 300, "width": 2000, "height": 400},
+        "secondary": {"x": 350, "y": 1100, "width": 1800, "height": 250}
+      }
+    },
+    "motivation_launch_01.png": {
+      "theme": "motivation",
+      "mood": "ambitious",
+      "energy_level": "very_high",
+      "best_for": ["goal_achievement", "ambition", "breakthrough", "launch"],
+      "time_of_day": ["morning", "goal_setting"],
+      "content_type": ["achievement_quotes", "goal_setting", "breakthrough_motivation"],
+      "text_areas": {
+        "primary": {"x": 200, "y": 200, "width": 2100, "height": 450},
+        "secondary": {"x": 300, "y": 1150, "width": 1900, "height": 250}
+      }
+    },
+    "motivation_lion_01.png": {
+      "theme": "motivation",
+      "mood": "courageous",
+      "energy_level": "high",
+      "best_for": ["courage", "bravery", "leadership", "strength"],
+      "time_of_day": ["morning", "challenging_moments"],
+      "content_type": ["courage_quotes", "bravery_inspiration", "leadership_advice"],
+      "text_areas": {
+        "primary": {"x": 150, "y": 250, "width": 2200, "height": 400},
+        "secondary": {"x": 250, "y": 1200, "width": 2000, "height": 200}
+      }
+    },
+    "motivation_running_01.png": {
+      "theme": "motivation",
+      "mood": "active",
+      "energy_level": "high",
+      "best_for": ["fitness", "perseverance", "endurance", "progress"],
+      "time_of_day": ["morning", "workout_time"],
+      "content_type": ["fitness_quotes", "perseverance_tips", "progress_motivation"],
+      "text_areas": {
+        "primary": {"x": 300, "y": 150, "width": 1900, "height": 400},
+        "secondary": {"x": 200, "y": 1300, "width": 2100, "height": 200}
+      }
+    },
+    "motivation_streetwear_01.png": {
+      "theme": "motivation",
+      "mood": "urban",
+      "energy_level": "high",
+      "best_for": ["youth_culture", "street_wisdom", "authenticity", "rebellion"],
+      "time_of_day": ["afternoon", "evening"],
+      "content_type": ["street_wisdom", "authenticity_quotes", "youth_motivation"],
+      "text_areas": {
+        "primary": {"x": 250, "y": 200, "width": 2000, "height": 450},
+        "secondary": {"x": 350, "y": 1150, "width": 1800, "height": 250}
+      }
+    },
+    "motivation_trapeze_01.png": {
+      "theme": "motivation",
+      "mood": "adventurous",
+      "energy_level": "high",
+      "best_for": ["risk_taking", "adventure", "flexibility", "performance"],
+      "time_of_day": ["afternoon", "challenge_time"],
+      "content_type": ["adventure_quotes", "risk_taking_tips", "performance_motivation"],
+      "text_areas": {
+        "primary": {"x": 200, "y": 300, "width": 2100, "height": 400},
+        "secondary": {"x": 300, "y": 1100, "width": 1900, "height": 250}
+      }
+    },
+    "nature_apples_01.png": {
+      "theme": "nature",
+      "mood": "fresh",
+      "energy_level": "medium",
+      "best_for": ["freshness", "natural_living", "simplicity", "purity"],
+      "time_of_day": ["morning", "afternoon"],
+      "content_type": ["natural_living_tips", "simplicity_quotes", "fresh_perspectives"],
+      "text_areas": {
+        "primary": {"x": 150, "y": 200, "width": 2200, "height": 450},
+        "secondary": {"x": 250, "y": 1200, "width": 2000, "height": 200}
+      }
+    },
+    "nature_farmhouse_01.png": {
+      "theme": "nature",
+      "mood": "peaceful",
+      "energy_level": "low",
+      "best_for": ["rural_living", "simplicity", "tradition", "home"],
+      "time_of_day": ["evening", "weekend"],
+      "content_type": ["simple_living_quotes", "home_wisdom", "traditional_values"],
+      "text_areas": {
+        "primary": {"x": 300, "y": 250, "width": 1900, "height": 400},
+        "secondary": {"x": 200, "y": 1150, "width": 2100, "height": 250}
+      }
+    },
+    "nature_landscape_01.png": {
+      "theme": "nature",
+      "mood": "scenic",
+      "energy_level": "medium",
+      "best_for": ["outdoor_activities", "travel", "exploration", "beauty"],
+      "time_of_day": ["morning", "golden_hour"],
+      "content_type": ["travel_quotes", "exploration_tips", "natural_beauty"],
+      "text_areas": {
+        "primary": {"x": 250, "y": 300, "width": 2000, "height": 400},
+        "secondary": {"x": 350, "y": 1100, "width": 1800, "height": 250}
+      }
+    },
+    "nature_serene_01.png": {
+      "theme": "nature",
+      "mood": "serene",
+      "energy_level": "low",
+      "best_for": ["meditation", "peace", "tranquility", "mindfulness"],
+      "time_of_day": ["evening", "meditation_time"],
+      "content_type": ["meditation_quotes", "peace_messages", "mindfulness_tips"],
+      "text_areas": {
+        "primary": {"x": 200, "y": 200, "width": 2100, "height": 450},
+        "secondary": {"x": 300, "y": 1200, "width": 1900, "height": 200}
+      }
+    },
+    "productivity_clean_01.png": {
+      "theme": "productivity",
+      "mood": "clean",
+      "energy_level": "medium",
+      "best_for": ["organization", "efficiency", "professionalism", "focus"],
+      "time_of_day": ["morning", "work_hours"],
+      "content_type": ["productivity_tips", "organization_advice", "efficiency_quotes"],
+      "text_areas": {
+        "primary": {"x": 150, "y": 250, "width": 2200, "height": 400},
+        "secondary": {"x": 250, "y": 1150, "width": 2000, "height": 250}
+      }
+    },
+    "productivity_digital_01.png": {
+      "theme": "productivity",
+      "mood": "tech",
+      "energy_level": "medium",
+      "best_for": ["technology", "digital_work", "innovation", "modern_solutions"],
+      "time_of_day": ["work_hours", "afternoon"],
+      "content_type": ["tech_productivity", "digital_tips", "innovation_advice"],
+      "text_areas": {
+        "primary": {"x": 300, "y": 150, "width": 1900, "height": 450},
+        "secondary": {"x": 200, "y": 1250, "width": 2100, "height": 200}
+      }
+    },
+    "productivity_focus_01.png": {
+      "theme": "productivity",
+      "mood": "focused",
+      "energy_level": "high",
+      "best_for": ["concentration", "deep_work", "attention", "precision"],
+      "time_of_day": ["morning", "deep_work_hours"],
+      "content_type": ["focus_tips", "concentration_advice", "deep_work_strategies"],
+      "text_areas": {
+        "primary": {"x": 250, "y": 200, "width": 2000, "height": 400},
+        "secondary": {"x": 350, "y": 1200, "width": 1800, "height": 250}
+      }
+    },
+    "productivity_overhead_01.png": {
+      "theme": "productivity",
+      "mood": "analytical",
+      "energy_level": "medium",
+      "best_for": ["analysis", "planning", "overview", "strategy"],
+      "time_of_day": ["morning", "planning_sessions"],
+      "content_type": ["planning_tips", "strategy_advice", "analytical_thinking"],
+      "text_areas": {
+        "primary": {"x": 200, "y": 300, "width": 2100, "height": 400},
+        "secondary": {"x": 300, "y": 1100, "width": 1900, "height": 250}
+      }
+    },
+    "wellness_cats_01.png": {
+      "theme": "wellness",
+      "mood": "cozy",
+      "energy_level": "low",
+      "best_for": ["comfort", "relaxation", "pet_therapy", "coziness"],
+      "time_of_day": ["evening", "relaxation_time"],
+      "content_type": ["comfort_quotes", "relaxation_tips", "cozy_moments"],
+      "text_areas": {
+        "primary": {"x": 150, "y": 200, "width": 2200, "height": 450},
+        "secondary": {"x": 250, "y": 1200, "width": 2000, "height": 200}
+      }
+    },
+    "wellness_mindful_01.png": {
+      "theme": "wellness",
+      "mood": "mindful",
+      "energy_level": "low",
+      "best_for": ["mindfulness", "meditation", "awareness", "presence"],
+      "time_of_day": ["morning", "meditation_time"],
+      "content_type": ["mindfulness_quotes", "meditation_guidance", "awareness_tips"],
+      "text_areas": {
+        "primary": {"x": 300, "y": 250, "width": 1900, "height": 400},
+        "secondary": {"x": 200, "y": 1150, "width": 2100, "height": 250}
+      }
+    },
+    "wellness_nature_01.png": {
+      "theme": "wellness",
+      "mood": "natural",
+      "energy_level": "medium",
+      "best_for": ["nature_therapy", "outdoor_wellness", "grounding", "connection"],
+      "time_of_day": ["morning", "outdoor_time"],
+      "content_type": ["nature_wellness", "grounding_tips", "outdoor_therapy"],
+      "text_areas": {
+        "primary": {"x": 250, "y": 200, "width": 2000, "height": 450},
+        "secondary": {"x": 350, "y": 1150, "width": 1800, "height": 250}
+      }
+    },
+    "wellness_peaceful_01.png": {
+      "theme": "wellness",
+      "mood": "peaceful",
+      "energy_level": "very_low",
+      "best_for": ["peace", "tranquility", "stress_relief", "calm"],
+      "time_of_day": ["evening", "bedtime"],
+      "content_type": ["peace_quotes", "stress_relief_tips", "calming_messages"],
+      "text_areas": {
+        "primary": {"x": 200, "y": 300, "width": 2100, "height": 400},
+        "secondary": {"x": 300, "y": 1100, "width": 1900, "height": 250}
+      }
+    },
+    "wellness_walking_01.png": {
+      "theme": "wellness",
+      "mood": "active",
+      "energy_level": "medium",
+      "best_for": ["walking", "gentle_exercise", "movement", "health"],
+      "time_of_day": ["morning", "afternoon"],
+      "content_type": ["walking_benefits", "gentle_exercise_tips", "movement_motivation"],
+      "text_areas": {
+        "primary": {"x": 150, "y": 250, "width": 2200, "height": 400},
+        "secondary": {"x": 250, "y": 1200, "width": 2000, "height": 200}
+      }
+    }
+  },
+  "theme_summary": {
+    "inspiration": {
+      "count": 10,
+      "description": "Creative, artistic, and imaginative content for sparking ideas and innovation",
+      "best_time": ["afternoon", "evening"],
+      "energy_range": ["medium", "high"]
+    },
+    "motivation": {
+      "count": 9,
+      "description": "High-energy, action-oriented content for driving determination and achievement",
+      "best_time": ["morning", "midday"],
+      "energy_range": ["high", "very_high"]
+    },
+    "nature": {
+      "count": 4,
+      "description": "Natural, scenic content promoting connection with the outdoors and simplicity",
+      "best_time": ["morning", "evening"],
+      "energy_range": ["low", "medium"]
+    },
+    "productivity": {
+      "count": 4,
+      "description": "Professional, focused content for enhancing work efficiency and organization",
+      "best_time": ["morning", "work_hours"],
+      "energy_range": ["medium", "high"]
+    },
+    "wellness": {
+      "count": 5,
+      "description": "Calm, nurturing content promoting mental and physical well-being",
+      "best_time": ["evening", "meditation_time"],
+      "energy_range": ["very_low", "medium"]
+    }
+  },
+  "content_scheduling_recommendations": {
+    "monday": ["motivation", "productivity"],
+    "tuesday": ["productivity", "wellness"],
+    "wednesday": ["inspiration", "motivation"],
+    "thursday": ["wellness", "nature"],
+    "friday": ["motivation", "inspiration"],
+    "saturday": ["nature", "wellness"],
+    "sunday": ["wellness", "inspiration"]
+  }
+}
