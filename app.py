@@ -162,8 +162,15 @@ def serve_template_image(filename):
             abort(404)
         
         logger.info(f"Serving background image: {filename}")
-        return send_from_directory(backgrounds_dir, filename, 
-                                 mimetype=f'image/{file_ext[1:]}')
+        response = send_from_directory(backgrounds_dir, filename, 
+                                     mimetype=f'image/{file_ext[1:]}')
+        
+        # Add CORS headers for LINE to access the images
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        
+        return response
         
     except Exception as e:
         logger.error(f"Error serving background image {filename}: {str(e)}")

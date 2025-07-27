@@ -64,9 +64,9 @@ class RichMessageService:
                 # No Flask context available (e.g., in Celery tasks)
                 pass
             
-            # Fallback to environment variable or Replit default
+            # Fallback to environment variable or correct Replit default
             if not base_url:
-                base_url = os.environ.get('BASE_URL', 'https://line-bot-connect.replit.app')
+                base_url = os.environ.get('BASE_URL', 'https://line-bot-connect-tkhongsap.replit.app')
         
         # Always ensure HTTPS for Replit deployments (LINE requires HTTPS)
         if 'replit.app' in base_url and base_url.startswith('http://'):
