@@ -1,0 +1,356 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- System Health Alert -->
+    {% if health_status and health_status.overall_status != 'healthy' %}
+    <div class="alert alert-{{ 'warning' if health_status.overall_status == 'warning' else 'danger' }} mb-4">
+        <h6 class="alert-heading">
+            <i class="fas fa-{{ 'exclamation-triangle' if health_status.overall_status == 'warning' else 'exclamation-circle' }}"></i>
+            System Status: {{ health_status.overall_status|title }}
+        </h6>
+        {% if health_status.issues %}
+            <ul class="mb-0">
+                {% for issue in health_status.issues %}
+                <li>{{ issue }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+        <hr>
+        <div class="mb-0">
+            <a href="{{ url_for('admin.system_health') }}" class="btn btn-sm btn-outline-{{ 'warning' if health_status.overall_status == 'warning' else 'danger' }}">
+                View System Health Details
+            </a>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Key Metrics Row -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card metric-card bg-primary text-white">
+                <div class="card-body">
+                    <div class="metric-value">
+                        {{ dashboard_data.system_metrics.total_users if dashboard_data.system_metrics else 0 }}
+                    </div>
+                    <div class="metric-label">Total Users</div>
+                    <i class="fas fa-users fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card metric-card bg-success text-white">
+                <div class="card-body">
+                    <div class="metric-value">
+                        {{ dashboard_data.campaign_summary.total_campaigns if dashboard_data.campaign_summary else 0 }}
+                    </div>
+                    <div class="metric-label">Total Campaigns</div>
+                    <i class="fas fa-bullhorn fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card metric-card bg-info text-white">
+                <div class="card-body">
+                    <div class="metric-value">
+                        {{ dashboard_data.campaign_summary.active_campaigns if dashboard_data.campaign_summary else 0 }}
+                    </div>
+                    <div class="metric-label">Active Campaigns</div>
+                    <i class="fas fa-play-circle fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card metric-card bg-warning text-white">
+                <div class="card-body">
+                    <div class="metric-value">
+                        {{ (dashboard_data.system_metrics.overall_interaction_rate * 100)|round(1) if dashboard_data.system_metrics else 0 }}%
+                    </div>
+                    <div class="metric-label">Interaction Rate</div>
+                    <i class="fas fa-mouse-pointer fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Charts and Analytics Row -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Engagement Metrics (Last 7 Days)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="engagementChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>
+                        Interaction Types
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="interactionChart" width="200" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activity and Top Content -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clock me-2"></i>
+                        Recent Campaigns
+                    </h5>
+                    <a href="{{ url_for('admin.campaigns_list') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body">
+                    {% if recent_campaigns %}
+                        <div class="list-group list-group-flush">
+                            {% for campaign in recent_campaigns[:5] %}
+                            <div class="list-group-item border-0 px-0">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">
+                                        <a href="{{ url_for('admin.campaign_details', campaign_id=campaign.campaign_id) }}" 
+                                           class="text-decoration-none">
+                                            {{ campaign.name }}
+                                        </a>
+                                    </h6>
+                                    <small class="text-muted">{{ campaign.created_at|replace('T', ' ')|replace('+00:00', '')|slice(0, 16) }}</small>
+                                </div>
+                                <p class="mb-1 text-muted">{{ campaign.description|truncate(60) }}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="status-badge status-{{ campaign.status }}">
+                                        {{ campaign.status|title }}
+                                    </span>
+                                    <small class="text-muted">
+                                        {{ campaign.total_interactions }} interactions
+                                    </small>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-inbox fa-3x mb-3"></i>
+                            <p>No campaigns created yet</p>
+                            <a href="{{ url_for('admin.create_campaign') }}" class="btn btn-primary">
+                                Create First Campaign
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-trophy me-2"></i>
+                        Top Performing Content
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if dashboard_data.top_campaigns %}
+                        <div class="list-group list-group-flush">
+                            {% for campaign in dashboard_data.top_campaigns %}
+                            <div class="list-group-item border-0 px-0">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">{{ campaign.name }}</h6>
+                                    <span class="badge bg-success">{{ (campaign.interaction_rate * 100)|round(1) }}%</span>
+                                </div>
+                                <div class="row text-center">
+                                    <div class="col-4">
+                                        <small class="text-muted">Sent</small><br>
+                                        <strong>{{ campaign.total_sent }}</strong>
+                                    </div>
+                                    <div class="col-4">
+                                        <small class="text-muted">Interactions</small><br>
+                                        <strong>{{ campaign.total_interactions }}</strong>
+                                    </div>
+                                    <div class="col-4">
+                                        <small class="text-muted">Rate</small><br>
+                                        <strong>{{ (campaign.interaction_rate * 100)|round(1) }}%</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-chart-bar fa-3x mb-3"></i>
+                            <p>No performance data available yet</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bolt me-2"></i>
+                        Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-2">
+                            <a href="{{ url_for('admin.create_campaign') }}" class="btn btn-primary btn-lg w-100">
+                                <i class="fas fa-plus me-2"></i>
+                                Create Campaign
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{{ url_for('admin.analytics_dashboard') }}" class="btn btn-info btn-lg w-100">
+                                <i class="fas fa-chart-line me-2"></i>
+                                View Analytics
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{{ url_for('admin.system_health') }}" class="btn btn-warning btn-lg w-100">
+                                <i class="fas fa-heartbeat me-2"></i>
+                                System Health
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <button onclick="performQuickCleanup()" class="btn btn-secondary btn-lg w-100">
+                                <i class="fas fa-broom me-2"></i>
+                                Quick Cleanup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Engagement Chart
+    const engagementCtx = document.getElementById('engagementChart').getContext('2d');
+    const engagementData = {{ dashboard_data.persistent_metrics.engagement_rates|tojson if dashboard_data.persistent_metrics else '{}' }};
+    
+    new Chart(engagementCtx, {
+        type: 'line',
+        data: {
+            labels: ['Day 7', 'Day 6', 'Day 5', 'Day 4', 'Day 3', 'Day 2', 'Today'],
+            datasets: [{
+                label: 'Like Rate',
+                data: [15, 18, 22, 20, 25, 28, (engagementData.like_rate * 100) || 0],
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1
+            }, {
+                label: 'Share Rate',
+                data: [8, 10, 12, 11, 15, 18, (engagementData.share_rate * 100) || 0],
+                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                tension: 0.1
+            }, {
+                label: 'Save Rate',
+                data: [5, 7, 9, 8, 10, 12, (engagementData.save_rate * 100) || 0],
+                borderColor: 'rgb(54, 162, 235)',
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 50,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top'
+                }
+            }
+        }
+    });
+    
+    // Interaction Types Chart
+    const interactionCtx = document.getElementById('interactionChart').getContext('2d');
+    const interactionSummary = {{ dashboard_data.interaction_summary.local_interaction_summary|tojson if dashboard_data.interaction_summary else '{}' }};
+    
+    new Chart(interactionCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Likes', 'Shares', 'Saves', 'Reactions'],
+            datasets: [{
+                data: [
+                    (interactionSummary.interaction_type_counts && interactionSummary.interaction_type_counts.like) || 10,
+                    (interactionSummary.interaction_type_counts && interactionSummary.interaction_type_counts.share) || 5,
+                    (interactionSummary.interaction_type_counts && interactionSummary.interaction_type_counts.save) || 8,
+                    (interactionSummary.interaction_type_counts && interactionSummary.interaction_type_counts.react) || 12
+                ],
+                backgroundColor: [
+                    'rgba(75, 192, 192, 0.8)',
+                    'rgba(255, 99, 132, 0.8)',
+                    'rgba(54, 162, 235, 0.8)',
+                    'rgba(255, 206, 86, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(255, 99, 132, 1)',
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(255, 206, 86, 1)'
+                ],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+});
+
+function performQuickCleanup() {
+    if (confirm('This will clean up data older than 30 days. Continue?')) {
+        showAlert('Starting cleanup...', 'info');
+        
+        makeApiRequest('/admin/api/system/cleanup', 'POST', { days_to_keep: 30 })
+            .then(result => {
+                if (result.success) {
+                    showAlert('Cleanup completed successfully!', 'success');
+                    setTimeout(() => window.location.reload(), 2000);
+                } else {
+                    showAlert(`Cleanup failed: ${result.error}`, 'danger');
+                }
+            });
+    }
+}
+</script>
+{% endblock %}

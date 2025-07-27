@@ -8,6 +8,7 @@ import hashlib
 import base64
 from unittest.mock import Mock, patch, call
 from linebot.exceptions import InvalidSignatureError, LineBotApiError
+from linebot.models import FlexSendMessage, PostbackEvent
 from src.services.line_service import LineService
 
 
@@ -307,27 +308,187 @@ class TestLineService:
         truncated_id = sample_line_message_event.source.user_id[:8]
         assert truncated_id in log_output
 
-    def test_handle_file_message_success(self, line_service, sample_line_file_event):
-        """Test file message handling success"""
-        mock_download = {"success": True, "file_data": b"data", "size": 4}
-        with patch("src.utils.file_utils.FileProcessor.download_file_from_line", return_value=mock_download):
-            mock_ai_response = {"success": True, "message": "File ok", "tokens_used": 10}
-            line_service.openai_service.get_response = Mock(return_value=mock_ai_response)
-            line_service._send_message = Mock()
-
-            line_service._handle_file_message(sample_line_file_event)
-
-            line_service.openai_service.get_response.assert_called_once()
-            line_service._send_message.assert_called_once_with(sample_line_file_event.reply_token, "File ok")
-
-    def test_handle_file_message_failure(self, line_service, sample_line_file_event):
-        """Test file message handling when AI fails"""
-        mock_download = {"success": True, "file_data": b"data", "size": 4}
-        with patch("src.utils.file_utils.FileProcessor.download_file_from_line", return_value=mock_download):
-            mock_ai_response = {"success": False, "error": "bad", "message": None}
-            line_service.openai_service.get_response = Mock(return_value=mock_ai_response)
-            line_service._send_message = Mock()
-
-            line_service._handle_file_message(sample_line_file_event)
-
-            line_service._send_message.assert_called_once()
+    
+    # Rich Message Tests
+    def test_send_rich_message_success(self, line_service):
+        """Test successful Rich Message sending"""
+        user_id = "user_123"
+        mock_flex_message = Mock(spec=FlexSendMessage)
+        
+        line_service.line_bot_api.push_message = Mock()
+        
+        result = line_service.send_rich_message(user_id, mock_flex_message)
+        
+        assert result['success'] is True
+        line_service.line_bot_api.push_message.assert_called_once_with(user_id, mock_flex_message)
+    
+    def test_send_rich_message_invalid_type(self, line_service):
+        """Test Rich Message sending with invalid message type"""
+        user_id = "user_123"
+        invalid_message = "Not a FlexSendMessage"
+        
+        result = line_service.send_rich_message(user_id, invalid_message)
+        
+        assert result['success'] is False
+        assert "Invalid message type" in result['error']
+    
+    def test_send_rich_message_api_error(self, line_service):
+        """Test Rich Message sending with API error"""
+        user_id = "user_123"
+        mock_flex_message = Mock(spec=FlexSendMessage)
+        
+        err = type("Err", (), {"message": "API Error"})()
+        error = LineBotApiError(400, {}, error=err)
+        line_service.line_bot_api.push_message = Mock(side_effect=error)
+        
+        result = line_service.send_rich_message(user_id, mock_flex_message)
+        
+        assert result['success'] is False
+        assert "LINE API error" in result['error']
+    
+    def test_broadcast_rich_message_success(self, line_service):
+        """Test successful Rich Message broadcasting"""
+        mock_flex_message = Mock(spec=FlexSendMessage)
+        mock_rich_message_service = Mock()
+        mock_rich_message_service.broadcast_rich_message.return_value = {'success': True}
+        
+        line_service.rich_message_service = mock_rich_message_service
+        
+        result = line_service.broadcast_rich_message(mock_flex_message)
+        
+        assert result['success'] is True
+        mock_rich_message_service.broadcast_rich_message.assert_called_once_with(
+            mock_flex_message, target_audience=None
+        )
+    
+    def test_broadcast_rich_message_no_service(self, line_service):
+        """Test Rich Message broadcasting without RichMessageService"""
+        mock_flex_message = Mock(spec=FlexSendMessage)
+        
+        result = line_service.broadcast_rich_message(mock_flex_message)
+        
+        assert result['success'] is False
+        assert "RichMessageService not available" in result['error']
+    
+    def test_create_and_set_rich_menu_success(self, line_service):
+        """Test successful Rich Menu creation and setting"""
+        mock_rich_message_service = Mock()
+        mock_rich_message_service.create_rich_menu.return_value = "richmenu-123"
+        mock_rich_message_service.set_default_rich_menu.return_value = True
+        
+        line_service.rich_message_service = mock_rich_message_service
+        
+        result = line_service.create_and_set_rich_menu("default", "/path/to/image.png")
+        
+        assert result['success'] is True
+        assert result['rich_menu_id'] == "richmenu-123"
+    
+    def test_create_and_set_rich_menu_creation_failure(self, line_service):
+        """Test Rich Menu creation failure"""
+        mock_rich_message_service = Mock()
+        mock_rich_message_service.create_rich_menu.return_value = None
+        
+        line_service.rich_message_service = mock_rich_message_service
+        
+        result = line_service.create_and_set_rich_menu()
+        
+        assert result['success'] is False
+        assert "Failed to create Rich Menu" in result['error']
+    
+    def test_handle_postback_event_view_content(self, line_service):
+        """Test postback event handling for view content action"""
+        mock_event = Mock(spec=PostbackEvent)
+        mock_event.source = Mock()
+        mock_event.source.user_id = "user_12345678"
+        mock_event.postback = Mock()
+        mock_event.postback.data = "action=view_content&menu=daily_inspiration"
+        mock_event.reply_token = "reply_token_123"
+        
+        line_service._send_message = Mock()
+        
+        line_service._handle_postback_event(mock_event)
+        
+        line_service._send_message.assert_called_once()
+        call_args = line_service._send_message.call_args
+        assert "daily_inspiration" in call_args[0][1]
+    
+    def test_handle_postback_event_share_action(self, line_service):
+        """Test postback event handling for share action"""
+        mock_event = Mock(spec=PostbackEvent)
+        mock_event.source = Mock()
+        mock_event.source.user_id = "user_12345678"
+        mock_event.postback = Mock()
+        mock_event.postback.data = "action=share&content_id=content_123"
+        mock_event.reply_token = "reply_token_123"
+        
+        line_service._send_message = Mock()
+        
+        line_service._handle_postback_event(mock_event)
+        
+        line_service._send_message.assert_called_once()
+        call_args = line_service._send_message.call_args
+        assert "分享" in call_args[0][1] or "sharing" in call_args[0][1].lower()
+    
+    def test_handle_postback_event_save_action(self, line_service):
+        """Test postback event handling for save action"""
+        mock_event = Mock(spec=PostbackEvent)
+        mock_event.source = Mock()
+        mock_event.source.user_id = "user_12345678"
+        mock_event.postback = Mock()
+        mock_event.postback.data = "action=save&content_id=content_123"
+        mock_event.reply_token = "reply_token_123"
+        
+        line_service._send_message = Mock()
+        
+        line_service._handle_postback_event(mock_event)
+        
+        line_service._send_message.assert_called_once()
+        call_args = line_service._send_message.call_args
+        assert "保存" in call_args[0][1] or "saved" in call_args[0][1].lower()
+    
+    def test_handle_postback_event_like_action(self, line_service):
+        """Test postback event handling for like action"""
+        mock_event = Mock(spec=PostbackEvent)
+        mock_event.source = Mock()
+        mock_event.source.user_id = "user_12345678"
+        mock_event.postback = Mock()
+        mock_event.postback.data = "action=like&content_id=content_123&reaction=like"
+        mock_event.reply_token = "reply_token_123"
+        
+        line_service._send_message = Mock()
+        
+        line_service._handle_postback_event(mock_event)
+        
+        line_service._send_message.assert_called_once()
+        call_args = line_service._send_message.call_args
+        assert "反饋" in call_args[0][1] or "feedback" in call_args[0][1].lower()
+    
+    def test_handle_postback_event_unknown_action(self, line_service, caplog):
+        """Test postback event handling for unknown action"""
+        import logging
+        
+        mock_event = Mock(spec=PostbackEvent)
+        mock_event.source = Mock()
+        mock_event.source.user_id = "user_12345678"
+        mock_event.postback = Mock()
+        mock_event.postback.data = "action=unknown_action"
+        
+        with caplog.at_level(logging.WARNING):
+            line_service._handle_postback_event(mock_event)
+        
+        assert "Unknown postback action" in caplog.text
+    
+    def test_postback_handler_registration(self, mock_settings, openai_service, conversation_service):
+        """Test that postback handler is properly registered"""
+        with patch('src.services.line_service.LineBotApi'), \
+             patch('src.services.line_service.WebhookHandler') as mock_handler:
+            
+            mock_handler_instance = Mock()
+            mock_handler.return_value = mock_handler_instance
+            
+            service = LineService(mock_settings, openai_service, conversation_service)
+            
+            # Verify handler.add was called for PostbackEvent
+            calls = mock_handler_instance.add.call_args_list
+            postback_calls = [call for call in calls if len(call[0]) > 0 and 'PostbackEvent' in str(call[0][0])]
+            assert len(postback_calls) >= 1

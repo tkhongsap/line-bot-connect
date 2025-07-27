@@ -1,0 +1,254 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Rich Message Template Metadata Schema",
+  "description": "Schema for Rich Message template metadata files",
+  "type": "object",
+  "required": [
+    "template_id",
+    "template_name",
+    "theme",
+    "file_info",
+    "text_areas",
+    "color_palette",
+    "created_date",
+    "version"
+  ],
+  "properties": {
+    "template_id": {
+      "type": "string",
+      "description": "Unique identifier for the template",
+      "pattern": "^[a-z0-9_-]+$"
+    },
+    "template_name": {
+      "type": "string",
+      "description": "Human-readable name for the template"
+    },
+    "theme": {
+      "type": "string",
+      "enum": ["morning_energy", "evening_calm", "productivity", "wellness", "general_motivation"],
+      "description": "Template theme category"
+    },
+    "file_info": {
+      "type": "object",
+      "required": ["filename", "file_size", "dimensions", "format"],
+      "properties": {
+        "filename": {
+          "type": "string",
+          "description": "Template image filename"
+        },
+        "file_size": {
+          "type": "integer",
+          "description": "File size in bytes",
+          "maximum": 1048576
+        },
+        "dimensions": {
+          "type": "object",
+          "required": ["width", "height"],
+          "properties": {
+            "width": {
+              "type": "integer",
+              "const": 2500
+            },
+            "height": {
+              "type": "integer", 
+              "const": 1686
+            }
+          }
+        },
+        "format": {
+          "type": "string",
+          "enum": ["PNG", "JPEG"],
+          "description": "Image file format"
+        }
+      }
+    },
+    "text_areas": {
+      "type": "object",
+      "required": ["title", "content"],
+      "properties": {
+        "title": {
+          "type": "object",
+          "required": ["position", "dimensions", "font_size_range", "max_characters"],
+          "properties": {
+            "position": {
+              "type": "object",
+              "required": ["x", "y"],
+              "properties": {
+                "x": {"type": "integer", "minimum": 0, "maximum": 2500},
+                "y": {"type": "integer", "minimum": 0, "maximum": 1686}
+              }
+            },
+            "dimensions": {
+              "type": "object",
+              "required": ["width", "height"],
+              "properties": {
+                "width": {"type": "integer", "minimum": 100},
+                "height": {"type": "integer", "minimum": 50}
+              }
+            },
+            "font_size_range": {
+              "type": "object",
+              "required": ["min", "max"],
+              "properties": {
+                "min": {"type": "integer", "minimum": 24},
+                "max": {"type": "integer", "maximum": 96}
+              }
+            },
+            "max_characters": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 100
+            },
+            "text_color": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "background_overlay": {
+              "type": "object",
+              "properties": {
+                "enabled": {"type": "boolean"},
+                "color": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+                "opacity": {"type": "number", "minimum": 0, "maximum": 1}
+              }
+            }
+          }
+        },
+        "content": {
+          "type": "object",
+          "required": ["position", "dimensions", "font_size_range", "max_characters"],
+          "properties": {
+            "position": {
+              "type": "object",
+              "required": ["x", "y"],
+              "properties": {
+                "x": {"type": "integer", "minimum": 0, "maximum": 2500},
+                "y": {"type": "integer", "minimum": 0, "maximum": 1686}
+              }
+            },
+            "dimensions": {
+              "type": "object",
+              "required": ["width", "height"],
+              "properties": {
+                "width": {"type": "integer", "minimum": 200},
+                "height": {"type": "integer", "minimum": 100}
+              }
+            },
+            "font_size_range": {
+              "type": "object",
+              "required": ["min", "max"],
+              "properties": {
+                "min": {"type": "integer", "minimum": 16},
+                "max": {"type": "integer", "maximum": 48}
+              }
+            },
+            "max_characters": {
+              "type": "integer",
+              "minimum": 50,
+              "maximum": 300
+            },
+            "line_height": {
+              "type": "number",
+              "minimum": 1.0,
+              "maximum": 2.0
+            },
+            "text_color": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "background_overlay": {
+              "type": "object",
+              "properties": {
+                "enabled": {"type": "boolean"},
+                "color": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+                "opacity": {"type": "number", "minimum": 0, "maximum": 1}
+              }
+            }
+          }
+        }
+      }
+    },
+    "color_palette": {
+      "type": "object",
+      "required": ["primary", "secondary", "accent"],
+      "properties": {
+        "primary": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+        "secondary": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+        "accent": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+        "background": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+        "text_overlay": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"}
+      }
+    },
+    "design_elements": {
+      "type": "object",
+      "properties": {
+        "style": {"type": "string"},
+        "mood": {"type": "string"},
+        "keywords": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "imagery_type": {"type": "string"},
+        "complexity_level": {
+          "type": "string",
+          "enum": ["minimal", "moderate", "detailed"]
+        }
+      }
+    },
+    "usage_guidelines": {
+      "type": "object",
+      "properties": {
+        "best_times": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "target_audience": {"type": "string"},
+        "content_types": {
+          "type": "array", 
+          "items": {"type": "string"}
+        },
+        "avoid_content": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "accessibility": {
+      "type": "object",
+      "properties": {
+        "color_contrast_ratio": {
+          "type": "number",
+          "minimum": 4.5
+        },
+        "text_readability": {
+          "type": "string",
+          "enum": ["excellent", "good", "acceptable", "poor"]
+        },
+        "mobile_optimized": {"type": "boolean"},
+        "screen_reader_friendly": {"type": "boolean"}
+      }
+    },
+    "created_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_modified": {
+      "type": "string", 
+      "format": "date-time"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v\\d+\\.\\d+\\.\\d+$"
+    },
+    "created_by": {
+      "type": "string"
+    },
+    "approved_by": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "review", "approved", "deprecated"],
+      "default": "draft"
+    }
+  }
+}

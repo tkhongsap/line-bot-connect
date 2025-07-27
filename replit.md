@@ -65,7 +65,56 @@ Preferred communication style: Simple, everyday language.
   - Support for LINE credentials and Azure OpenAI configuration
   - Development and production configuration separation
 
-# Recent Changes (January 2024)
+# Recent Changes
+
+## Dynamic Button Response System Fixed (July 27, 2025)
+- ✅ **Button Response Issue Resolved**: Fixed "'str' object has no attribute 'get'" error preventing dynamic AI responses
+- ✅ **Response Format Handling**: Enhanced interaction handler to properly handle both string and dictionary responses from OpenAI service
+- ✅ **LSP Error Fixes**: Resolved 7 type checking errors in rich_message_service.py with proper null checking
+- ✅ **Dynamic AI Generation**: All 4 button types (Tell me more, What's real here?, Been there?, Recipe?) now generate unique, contextual AI responses
+- ✅ **Context-Aware Responses**: Buttons now reference both message content and visual context using Anthony Bourdain's authentic voice
+- ✅ **Fallback Prevention**: Eliminated static fallback responses, ensuring all button clicks generate fresh AI content
+
+## LineOA Rich Message System with Image Display Fixed (July 27, 2025)
+- ✅ **Image Display Fixed**: Added Flask route `/static/backgrounds/` to serve template images via HTTPS URLs
+- ✅ **LineOA Integration Confirmed**: Successfully tested rich message sending through LINE Official Account  
+- ✅ **AI Content Generation**: Azure OpenAI GPT-4.1 generates professional content tailored to template themes
+- ✅ **Template System**: 50+ beautiful templates with full image display (productivity, inspiration, motivation, nature themes)
+- ✅ **Interactive Features**: Like, Share, Save, React buttons fully functional for engagement tracking
+- ✅ **Professional Messaging**: Business-appropriate content generation for official account broadcasting
+- ✅ **Production Ready**: Complete system with visual templates confirmed working for follower engagement and marketing campaigns
+
+## Rich Message Automation Testing System (July 2025)
+- ✅ **Rich Message Testing Scripts**: Created comprehensive testing tools for safe rich message automation
+- ✅ **Template System**: 50+ beautiful templates available (Little Prince, motivation, nature, productivity themes)
+- ✅ **Personal Testing**: Safe testing mode to send rich messages to yourself only (no broadcast)
+- ✅ **Interactive Features**: Rich messages include Like, Share, Save, React buttons for engagement tracking
+- ✅ **User ID Capture**: Automated tool to capture LINE User ID for testing
+- ✅ **Multiple Test Scripts**: Quick test, advanced template selection, and user ID helper tools
+
+## Rich Message Testing Tools Added
+1. **Quick Rich Test** (`quick_rich_test.py`)
+   - Simple one-command testing
+   - Mock mode for safe testing
+   - Live send mode for actual delivery
+   
+2. **Advanced Template Testing** (`send_test_rich_message.py`)
+   - Interactive menu with 6+ template options
+   - Theme-based content generation
+   - Template preview and selection
+
+3. **User ID Capture** (`get_my_user_id.py`)
+   - Automated LINE User ID detection
+   - Webhook monitoring for ID capture
+   - Safe file-based ID storage
+
+## Technical Features Added
+- **Service Constructor Fixes**: Corrected API parameter issues in all test scripts
+- **Template Management**: Metadata-driven template selection system
+- **Interactive Buttons**: Like, Share, Save, React functionality with analytics
+- **Safe Testing Architecture**: Mock mode prevents accidental broadcasting to all users
+
+# Previous Changes (January 2024)
 
 ## Image Understanding Feature Implementation
 - ✅ **ImageMessage Handler**: Added support for image messages in LINE service

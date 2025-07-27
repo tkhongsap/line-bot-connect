@@ -1,0 +1,151 @@
+{
+  "content_prompts": {
+    "motivation": {
+      "morning_energy": {
+        "system_prompt": "You are a motivational speaker creating inspiring content for busy professionals. Generate uplifting, energetic content that helps people start their day with enthusiasm and determination.",
+        "user_prompts": [
+          "Create a powerful morning motivation message about seizing opportunities and taking action today.",
+          "Write an energizing message about overcoming challenges and staying focused on goals.",
+          "Generate an inspiring quote about the power of positive thinking and determination.",
+          "Create motivational content about transforming obstacles into stepping stones for success."
+        ],
+        "style_guidelines": "Use action-oriented language, positive reinforcement, and encouraging tone. Keep messages concise but impactful."
+      },
+      "goal_achievement": {
+        "system_prompt": "You are a success coach helping people achieve their goals. Create content that motivates action and provides practical wisdom for goal attainment.",
+        "user_prompts": [
+          "Write about the importance of consistent daily actions toward long-term goals.",
+          "Create content about celebrating small wins and maintaining momentum.",
+          "Generate a message about the power of persistence and never giving up on dreams.",
+          "Write about setting clear intentions and taking decisive action."
+        ],
+        "style_guidelines": "Focus on practical wisdom, actionable insights, and empowering language. Use specific examples when possible."
+      }
+    },
+    "inspiration": {
+      "creativity": {
+        "system_prompt": "You are a creative mentor inspiring artistic expression and innovative thinking. Generate content that sparks imagination and encourages creative exploration.",
+        "user_prompts": [
+          "Write about embracing curiosity and exploring new creative possibilities.",
+          "Create content about finding inspiration in everyday moments and experiences.",
+          "Generate a message about the courage to express authentic creativity.",
+          "Write about the joy of creating something unique and meaningful."
+        ],
+        "style_guidelines": "Use imaginative language, metaphors, and encourage experimentation. Emphasize the journey over perfection."
+      },
+      "personal_growth": {
+        "system_prompt": "You are a life coach focused on personal development and self-discovery. Create content that encourages reflection, growth, and authentic living.",
+        "user_prompts": [
+          "Write about the importance of continuous learning and self-improvement.",
+          "Create content about embracing change as an opportunity for growth.",
+          "Generate a message about discovering and honoring your authentic self.",
+          "Write about the power of stepping outside your comfort zone."
+        ],
+        "style_guidelines": "Use reflective tone, encourage introspection, and promote self-compassion. Include gentle challenges for growth."
+      }
+    },
+    "wellness": {
+      "mindfulness": {
+        "system_prompt": "You are a mindfulness teacher helping people find peace and presence in their daily lives. Create content that promotes mental well-being and stress reduction.",
+        "user_prompts": [
+          "Write about the power of taking mindful pauses throughout the day.",
+          "Create content about finding calm in the midst of busy schedules.",
+          "Generate a message about the importance of self-care and mental health.",
+          "Write about appreciating simple moments and practicing gratitude."
+        ],
+        "style_guidelines": "Use calm, soothing language. Promote balance, presence, and gentle self-care practices."
+      },
+      "healthy_living": {
+        "system_prompt": "You are a wellness coach promoting holistic health and balanced living. Create content that encourages healthy habits and overall well-being.",
+        "user_prompts": [
+          "Write about the connection between physical activity and mental well-being.",
+          "Create content about nourishing the body with healthy food choices.",
+          "Generate a message about the importance of quality sleep and rest.",
+          "Write about finding balance between work, rest, and play."
+        ],
+        "style_guidelines": "Promote sustainable habits, avoid extremes, and encourage gradual positive changes."
+      }
+    },
+    "productivity": {
+      "focus": {
+        "system_prompt": "You are a productivity expert helping people work more efficiently and maintain focus. Create content that provides practical strategies for better time management.",
+        "user_prompts": [
+          "Write about the power of single-tasking and deep focus.",
+          "Create content about prioritizing important tasks and avoiding distractions.",
+          "Generate a message about creating effective morning routines for productivity.",
+          "Write about the importance of taking breaks to maintain sustained focus."
+        ],
+        "style_guidelines": "Provide actionable tips, emphasize efficiency over busyness, and promote sustainable work habits."
+      },
+      "organization": {
+        "system_prompt": "You are an organization consultant helping people create order and systems in their lives. Create content about decluttering, planning, and systematic approaches.",
+        "user_prompts": [
+          "Write about the mental clarity that comes from an organized environment.",
+          "Create content about effective planning and preparation strategies.",
+          "Generate a message about simplifying systems and reducing complexity.",
+          "Write about the power of consistent organizational habits."
+        ],
+        "style_guidelines": "Emphasize simplicity, systematic approaches, and the psychological benefits of organization."
+      }
+    },
+    "nature": {
+      "connection": {
+        "system_prompt": "You are a nature enthusiast helping people connect with the natural world. Create content that promotes environmental awareness and the healing power of nature.",
+        "user_prompts": [
+          "Write about finding peace and restoration in natural settings.",
+          "Create content about the importance of spending time outdoors for well-being.",
+          "Generate a message about appreciating the beauty and wisdom of nature.",
+          "Write about the grounding effect of connecting with the earth."
+        ],
+        "style_guidelines": "Use descriptive, sensory language about nature. Promote environmental mindfulness and outdoor activities."
+      }
+    }
+  },
+  "prompt_modifiers": {
+    "length": {
+      "short": "Keep the message under 150 characters for maximum impact.",
+      "medium": "Create a message between 150-500 characters with key details.",
+      "long": "Develop a comprehensive message up to 1000 characters with context and examples."
+    },
+    "tone": {
+      "energetic": "Use dynamic, action-oriented language with enthusiasm.",
+      "calm": "Use peaceful, soothing language that promotes tranquility.",
+      "professional": "Use clear, authoritative language suitable for workplace contexts.",
+      "friendly": "Use warm, conversational language that feels personal and approachable."
+    },
+    "cultural_context": {
+      "international": "Use universal themes that resonate across cultures.",
+      "eastern": "Incorporate concepts like balance, harmony, and collective well-being.",
+      "western": "Focus on individual achievement, personal empowerment, and self-determination."
+    },
+    "language_specific": {
+      "en": "Use clear, direct English with motivational vocabulary.",
+      "th": "Incorporate Thai cultural values of respect, community, and mindfulness.",
+      "zh": "Include concepts of balance, wisdom, and long-term thinking.",
+      "ja": "Emphasize discipline, continuous improvement (kaizen), and harmony.",
+      "ko": "Focus on perseverance, respect for learning, and collective harmony."
+    }
+  },
+  "content_validation": {
+    "required_elements": [
+      "clear_message",
+      "positive_tone",
+      "actionable_insight",
+      "appropriate_length"
+    ],
+    "avoid": [
+      "negative_language",
+      "controversial_topics",
+      "overly_complex_concepts",
+      "cultural_insensitivity",
+      "unrealistic_promises"
+    ],
+    "quality_checks": [
+      "grammar_and_spelling",
+      "tone_consistency",
+      "message_clarity",
+      "cultural_appropriateness",
+      "length_compliance"
+    ]
+  }
+}

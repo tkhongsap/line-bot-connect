@@ -10,7 +10,14 @@
       "Bash(grep:*)",
       "Bash(rm:*)",
       "Bash(./scripts/run_tests.sh:*)",
-      "Bash(python test:*)"
+      "Bash(python test:*)",
+      "Bash(cp:*)",
+      "Bash(cd:*)",
+      "Bash(cd:*)",
+      "Bash(mv:*)",
+      "Bash(python:*)",
+      "Bash(chmod:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }

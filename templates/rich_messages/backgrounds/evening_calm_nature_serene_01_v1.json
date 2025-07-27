@@ -1,0 +1,102 @@
+{
+  "template_id": "evening_calm_nature_serene_01_v1",
+  "template_name": "Evening Calm - Nature_Serene_01_V1",
+  "theme": "evening_calm",
+  "file_info": {
+    "filename": "evening_calm_nature_serene_01_v1.jpg",
+    "file_size": 378202,
+    "dimensions": {
+      "width": 2500,
+      "height": 1686
+    },
+    "format": "JPEG"
+  },
+  "text_areas": {
+    "title": {
+      "position": {
+        "x": 250,
+        "y": 200
+      },
+      "dimensions": {
+        "width": 600,
+        "height": 200
+      },
+      "font_size_range": {
+        "min": 48,
+        "max": 72
+      },
+      "max_characters": 50,
+      "text_color": "#FFFFFF",
+      "background_overlay": {
+        "enabled": true,
+        "color": "#6A5ACD",
+        "opacity": 0.8
+      }
+    },
+    "content": {
+      "position": {
+        "x": 250,
+        "y": 650
+      },
+      "dimensions": {
+        "width": 800,
+        "height": 300
+      },
+      "font_size_range": {
+        "min": 24,
+        "max": 36
+      },
+      "max_characters": 150,
+      "line_height": 1.5,
+      "text_color": "#FFFFFF",
+      "background_overlay": {
+        "enabled": true,
+        "color": "#DDA0DD",
+        "opacity": 0.75
+      }
+    }
+  },
+  "color_palette": {
+    "primary": "#6A5ACD",
+    "secondary": "#DDA0DD",
+    "accent": "#F0E68C",
+    "background": "#F8F9FA",
+    "text_overlay": "#FFFFFF"
+  },
+  "design_elements": {
+    "style": "Calming evening theme",
+    "mood": "evening calm",
+    "keywords": [
+      "evening_calm",
+      "converted",
+      "optimized"
+    ],
+    "imagery_type": "converted from original design",
+    "complexity_level": "moderate"
+  },
+  "usage_guidelines": {
+    "best_times": [
+      "18:00-22:00"
+    ],
+    "target_audience": "general users",
+    "content_types": [
+      "motivational content",
+      "daily messages"
+    ],
+    "avoid_content": [
+      "inappropriate content"
+    ]
+  },
+  "accessibility": {
+    "color_contrast_ratio": 4.5,
+    "text_readability": "good",
+    "mobile_optimized": true,
+    "screen_reader_friendly": true
+  },
+  "created_date": "2025-07-26T14:15:30.821011+00:00",
+  "last_modified": "2025-07-26T14:15:30.821030+00:00",
+  "version": "v1.0.0",
+  "created_by": "Template Converter",
+  "approved_by": "System",
+  "status": "draft"
+}

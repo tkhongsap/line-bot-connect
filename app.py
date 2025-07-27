@@ -1,7 +1,7 @@
 import os
 import logging
 import secrets
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template, jsonify, send_from_directory, abort
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -21,6 +21,9 @@ from src.services.openai_service import OpenAIService
 from src.services.conversation_factory import create_conversation_service
 from src.config.settings import Settings
 from src.utils.security import setup_cors, validate_webhook_ip
+
+# Import admin routes
+from src.routes.admin_routes import admin_bp
 
 # Create Flask app
 app = Flask(__name__)
@@ -51,13 +54,28 @@ limiter = Limiter(
 # Setup CORS and security headers
 app = setup_cors(app)
 
+# Register admin blueprint
+app.register_blueprint(admin_bp)
+
 # Initialize settings
 settings = Settings()
 
 # Initialize services
 conversation_service = create_conversation_service()
 openai_service = OpenAIService(settings, conversation_service)
-line_service = LineService(settings, openai_service, conversation_service)
+
+# Initialize LINE Bot API for Rich Message Service
+from linebot import LineBotApi
+line_bot_api = LineBotApi(settings.LINE_CHANNEL_ACCESS_TOKEN)
+
+# Initialize Rich Message Service  
+from src.services.rich_message_service import RichMessageService
+rich_message_service = RichMessageService(
+    line_bot_api=line_bot_api,
+    openai_service=openai_service
+)
+
+line_service = LineService(settings, openai_service, conversation_service, rich_message_service)
 
 @app.route('/')
 def index():
@@ -128,6 +146,47 @@ def conversations_status():
             for user_id, conv in conversation_service.conversations.items()
         ]
     })
+
+@app.route('/static/backgrounds/<filename>')
+@limiter.limit("100 per minute")  # Allow frequent access to background images
+def serve_template_image(filename):
+    """Serve background images for Rich Messages"""
+    try:
+        # Security check: ensure filename doesn't contain path traversal
+        if '..' in filename or '/' in filename or '\\' in filename:
+            logger.warning(f"Invalid filename attempted: {filename}")
+            abort(400)
+        
+        # Check if file exists and is an image
+        allowed_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
+        file_ext = os.path.splitext(filename)[1].lower()
+        
+        if file_ext not in allowed_extensions:
+            logger.warning(f"Invalid file extension: {filename}")
+            abort(400)
+        
+        # Serve from templates/rich_messages/backgrounds directory
+        backgrounds_dir = os.path.join(os.getcwd(), 'templates', 'rich_messages', 'backgrounds')
+        file_path = os.path.join(backgrounds_dir, filename)
+        
+        if not os.path.exists(file_path):
+            logger.warning(f"Background image not found: {filename}")
+            abort(404)
+        
+        logger.info(f"Serving background image: {filename}")
+        response = send_from_directory(backgrounds_dir, filename, 
+                                     mimetype=f'image/{file_ext[1:]}')
+        
+        # Add CORS headers for LINE to access the images
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error serving background image {filename}: {str(e)}")
+        abort(500)
 
 if __name__ == '__main__':
     # Only enable debug mode if explicitly set in environment
