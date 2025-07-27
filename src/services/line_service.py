@@ -314,7 +314,7 @@ class LineService:
             interaction_handler = get_interaction_handler(self.openai_service)
             
             # Process the conversation trigger
-            result = interaction_handler.handle_user_interaction(user_id, interaction_data)
+            result = interaction_handler.handle_user_interaction(user_id, interaction_data, self.rich_message_service)
             
             if result['success']:
                 message = result.get('message', 'Thanks for your interest!')

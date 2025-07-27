@@ -63,7 +63,19 @@ settings = Settings()
 # Initialize services
 conversation_service = create_conversation_service()
 openai_service = OpenAIService(settings, conversation_service)
-line_service = LineService(settings, openai_service, conversation_service)
+
+# Initialize LINE Bot API for Rich Message Service
+from linebot import LineBotApi
+line_bot_api = LineBotApi(settings.LINE_CHANNEL_ACCESS_TOKEN)
+
+# Initialize Rich Message Service  
+from src.services.rich_message_service import RichMessageService
+rich_message_service = RichMessageService(
+    line_bot_api=line_bot_api,
+    openai_service=openai_service
+)
+
+line_service = LineService(settings, openai_service, conversation_service, rich_message_service)
 
 @app.route('/')
 def index():

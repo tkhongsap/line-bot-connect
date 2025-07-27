@@ -1,147 +1,171 @@
 #!/usr/bin/env python3
 """
-Send Rich Message Test to LINE OA
+Send Test Rich Message to LINE OA
 
-This script sends a Rich Message with background image to test the fixes.
+Send an optimized Rich Message with working interactive buttons to test the 
+server-side context storage solution.
 """
 
 import sys
 import os
+import time
 from datetime import datetime
 
 # Add src to path
 sys.path.append('/home/runner/workspace/src')
 
-def send_test_rich_message(user_id):
-    """Send a test Rich Message with background image"""
+def send_rich_message_test():
+    """Send a Rich Message with optimized buttons to LINE OA"""
     
-    print("📤 SENDING RICH MESSAGE TEST TO LINE OA")
+    print("📱 SENDING RICH MESSAGE TEST")
+    print("Testing optimized button system with your LINE OA")
     print("=" * 50)
-    print(f"📱 Target User: {user_id}")
-    print(f"🕐 Send Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print()
     
     try:
-        # Import services
         from src.services.rich_message_service import RichMessageService
-        from src.services.line_service import LineService
         from src.services.openai_service import OpenAIService
         from src.services.conversation_service import ConversationService
         from src.config.settings import Settings
-        
-        print("✅ 1. Services imported successfully")
+        from linebot import LineBotApi
         
         # Initialize services
         settings = Settings()
+        line_bot_api = LineBotApi(settings.LINE_CHANNEL_ACCESS_TOKEN)
+        
+        # Initialize with OpenAI for dynamic content
         conversation_service = ConversationService()
         openai_service = OpenAIService(settings, conversation_service)
-        line_service = LineService(settings, openai_service, conversation_service)
         
-        # Create RichMessageService with explicit base URL
-        rich_service = RichMessageService(
-            line_bot_api=line_service.line_bot_api,
-            base_url='https://line-bot-connect.replit.app'
-        )
-        print("✅ 2. Rich Message service initialized")
-        
-        # Select a nice template for testing
-        template_name = "productivity_monday_coffee.png"  # Known working template
-        template_path = f"/home/runner/workspace/templates/rich_messages/backgrounds/{template_name}"
-        
-        if not os.path.exists(template_path):
-            print(f"❌ Template not found: {template_path}")
-            return False
-        
-        file_size = os.path.getsize(template_path)
-        print(f"✅ 3. Template selected: {template_name} ({file_size:,} bytes)")
-        
-        # Create engaging content
-        title = "🚀 Background Image Test!"
-        content = "This Rich Message should now display a beautiful coffee-themed background image instead of a blank white background. The fixes have been applied! ☕✨"
-        
-        print(f"✅ 4. Content prepared")
-        print(f"   📋 Title: {title}")
-        print(f"   💼 Content: {content[:60]}...")
-        
-        # Create Rich Message with background image
-        print("🎨 5. Creating Rich Message with background image...")
-        
-        flex_message = rich_service.create_flex_message(
-            title=title,
-            content=content,
-            image_path=template_path,
-            content_id=f"bg_test_{int(datetime.now().timestamp())}",
-            user_id=user_id,
-            include_interactions=True
+        # Create Rich Message Service with full AI capabilities
+        rich_message_service = RichMessageService(
+            line_bot_api=line_bot_api,
+            openai_service=openai_service
         )
         
-        print("✅ 6. Rich Message created successfully")
+        print("✅ Services initialized with AI content generation")
         
-        # Verify the structure before sending
-        flex_dict = flex_message.as_json_dict()
-        bubble = flex_dict.get('contents', {})
-        hero = bubble.get('hero', {})
+        # Your LINE user ID
+        test_user_id = "U595491d702720bc7c90d50618324cac3"
         
-        if hero and hero.get('url'):
-            print(f"✅ 7. Background image verified: {hero['url']}")
-        else:
-            print("❌ 7. Warning: No background image found in message")
-            return False
+        # Generate unique content ID for tracking
+        content_id = f"live_test_{int(time.time())}"
+        
+        print(f"📋 Message Details:")
+        print(f"   Target: Your LINE OA")
+        print(f"   User ID: {test_user_id[:12]}...")
+        print(f"   Content ID: {content_id}")
+        
+        # Create Smart Rich Message with AI-generated content
+        print(f"\n🎨 Creating Smart Rich Message...")
+        print(f"   Theme: motivation")
+        print(f"   AI Generation: enabled")
+        print(f"   Interactive Buttons: enabled")
+        print(f"   Context Storage: optimized")
+        
+        flex_message = rich_message_service.create_smart_rich_message(
+            theme="motivation",
+            user_context="Live test of the optimized button system with enhanced AI responses",
+            content_id=content_id,
+            user_id=test_user_id,
+            include_interactions=True,
+            force_ai_generation=True
+        )
+        
+        print(f"✅ Rich Message created successfully")
+        print(f"   Type: {type(flex_message).__name__}")
+        print(f"   Alt Text: {flex_message.alt_text}")
         
         # Send the message
-        print("📤 8. Sending Rich Message to LINE OA...")
+        print(f"\n📤 Sending to your LINE OA...")
         
-        try:
-            line_service.line_bot_api.push_message(user_id, flex_message)
-            print("✅ 9. Rich Message sent successfully!")
-            print()
-            print("🎯 CHECK YOUR LINE APP NOW!")
-            print("You should see a Rich Message with:")
-            print("   📸 Coffee-themed background image")
-            print("   📱 Text overlay with title and content")
-            print("   🔘 Interactive buttons at the bottom")
-            print()
-            print("🔍 If you still see a blank white background, check:")
-            print("   1. Your app is deployed on Replit")
-            print("   2. The image serving route is accessible")
-            print("   3. LINE can reach your HTTPS endpoint")
+        send_result = rich_message_service.send_rich_message(
+            flex_message=flex_message,
+            user_id=test_user_id,
+            bypass_rate_limit=True
+        )
+        
+        if send_result['success']:
+            print(f"✅ Rich Message sent successfully!")
+            print(f"   Status: {send_result.get('status', 'sent')}")
+            print(f"   Rate limit bypassed: Yes")
+            
+            # Verify context storage
+            print(f"\n🗄️ Verifying context storage...")
+            stored_context = rich_message_service.get_button_context(content_id)
+            
+            if stored_context:
+                print(f"✅ Context stored successfully")
+                print(f"   Title: {stored_context.get('title', 'N/A')}")
+                print(f"   Content Preview: {stored_context.get('content', '')[:50]}...")
+                print(f"   Theme: {stored_context.get('theme', 'N/A')}")
+                print(f"   Image Context: {stored_context.get('image_context', {}).get('description', 'N/A')}")
+                
+                # Show button optimization info
+                print(f"\n📊 Button Optimization Status:")
+                from src.utils.interaction_handler import get_interaction_handler
+                interaction_handler = get_interaction_handler(openai_service)
+                
+                buttons = interaction_handler.create_interactive_buttons(
+                    content_id=content_id,
+                    rich_message_context=stored_context,
+                    rich_message_service=rich_message_service
+                )
+                
+                for i, button in enumerate(buttons, 1):
+                    data_size = len(button['data'])
+                    status = "✅" if data_size <= 300 else "❌"
+                    print(f"   Button {i} '{button['label']}': {data_size} chars {status}")
+                
+            else:
+                print(f"❌ Context storage verification failed")
+            
+            print(f"\n🎯 TEST COMPLETE!")
+            print(f"📱 Check your LINE app now for the Rich Message")
+            print(f"🔘 Try clicking the interactive buttons:")
+            print(f"   • 'Tell me more' - Get deeper perspective")
+            print(f"   • 'What's real here?' - Get authentic take")
+            print(f"   • 'Been there?' - Get personal story")
+            print(f"   • 'Recipe?' - Get practical advice")
+            print(f"")
+            print(f"🤖 Each button should generate a Bourdain-style response that:")
+            print(f"   ✓ References the message content")
+            print(f"   ✓ Mentions the background image/setting")
+            print(f"   ✓ Provides contextual, authentic advice")
+            print(f"")
+            print(f"🔍 Watch the Replit console for button interaction logs")
             
             return True
             
-        except Exception as send_error:
-            print(f"❌ 9. Failed to send message: {str(send_error)}")
-            print("🔧 This could be due to:")
-            print("   - Invalid user ID")
-            print("   - LINE API credentials not configured")
-            print("   - Network connectivity issues")
+        else:
+            print(f"❌ Failed to send Rich Message: {send_result.get('error')}")
             return False
-        
+            
     except Exception as e:
-        print(f"❌ Test failed: {str(e)}")
+        print(f"❌ Send test failed: {str(e)}")
         import traceback
         traceback.print_exc()
         return False
 
 if __name__ == "__main__":
-    # You need to set your LINE user ID here
-    # Check GET_YOUR_LINE_USER_ID.md for instructions on how to get it
+    print("📱 RICH MESSAGE SEND TEST")
+    print("Sending optimized Rich Message to your LINE OA")
+    print()
     
-    # Common LINE user ID patterns (replace with your actual ID):
-    TEST_USER_ID = "YOUR_LINE_USER_ID_HERE"
+    success = send_rich_message_test()
     
-    if TEST_USER_ID == "YOUR_LINE_USER_ID_HERE":
-        print("⚠️  Please set your LINE user ID in the script")
-        print("📖 To get your LINE user ID:")
-        print("   1. Check GET_YOUR_LINE_USER_ID.md")
-        print("   2. Or run: python get_my_user_id.py")
-        print("   3. Then edit this script and set TEST_USER_ID")
-        exit(1)
-    
-    success = send_test_rich_message(TEST_USER_ID)
-    
+    print("\n" + "=" * 50)
     if success:
-        print("\n🎉 Rich Message sent successfully!")
-        print("📱 Check your LINE app to see the background image!")
+        print("✅ SEND TEST SUCCESSFUL")
+        print()
+        print("📱 Rich Message delivered to your LINE OA")
+        print("🔘 Test the interactive buttons to verify AI responses")
+        print("🔍 Watch console for button interaction processing")
+        print()
+        print("Expected behavior:")
+        print("• Buttons should respond immediately")
+        print("• Responses should reference image context") 
+        print("• Anthony Bourdain personality should be evident")
+        print("• No '400 - invalid message' errors")
     else:
-        print("\n❌ Failed to send Rich Message")
-        print("🔧 Check the error messages above for troubleshooting")
+        print("❌ SEND TEST FAILED")
+        print("Check errors above")

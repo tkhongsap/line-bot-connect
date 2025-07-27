@@ -48,6 +48,9 @@ class RichMessageService:
             raise ValueError("line_bot_api is required for RichMessageService")
         
         self.line_bot_api = line_bot_api
+        
+        # Context storage for button interactions
+        self._button_context_storage = {}
         self.template_manager = template_manager
         self.content_generator = content_generator
         self.base_url = base_url
@@ -1135,7 +1138,7 @@ Create content that connects to this specific visual context. Make Bourdain's vo
         
         logger.info(f"Smart Rich Message generated - Tier: {generation_tier}, Image: {os.path.basename(image_path) if image_path else 'none'}")
         
-        # Create the Flex Message using the existing method
+        # Create the Flex Message using the existing method with theme context
         return self.create_flex_message(
             title=title,
             content=content,
@@ -1143,7 +1146,9 @@ Create content that connects to this specific visual context. Make Bourdain's vo
             content_id=content_id,
             user_id=user_id,
             action_buttons=action_buttons,
-            include_interactions=include_interactions
+            include_interactions=include_interactions,
+            theme=theme,  # Pass theme for rich context
+            user_context=user_context  # Pass user context
         )
 
     def create_flex_message(self, 
@@ -1249,10 +1254,21 @@ Create content that connects to this specific visual context. Make Bourdain's vo
             try:
                 # Pass OpenAI service to interaction handler for conversation triggers
                 interaction_handler = get_interaction_handler(self.openai_service)
+                
+                # Build rich message context for enhanced button responses
+                rich_message_context = {
+                    'title': title,
+                    'content': content,
+                    'theme': theme if theme else 'general',  # Use provided theme or default
+                    'image_context': self._extract_image_context(os.path.basename(image_path)) if image_path else {}
+                }
+                
                 interactive_buttons = interaction_handler.create_interactive_buttons(
                     content_id=content_id,
                     current_user_id=user_id,
-                    include_stats=True
+                    include_stats=True,
+                    rich_message_context=rich_message_context,
+                    rich_message_service=self
                 )
                 
                 if interactive_buttons:
@@ -1527,3 +1543,78 @@ Create content that connects to this specific visual context. Make Bourdain's vo
         except Exception as e:
             logger.error(f"Unexpected error listing Rich Menus: {str(e)}")
             return []
+    
+    def store_button_context(self, content_id: str, rich_context: Dict[str, Any]) -> None:
+        """
+        Store rich context for button interactions
+        
+        Args:
+            content_id: Unique identifier for the content
+            rich_context: Full context including title, content, theme, image_context
+        """
+        try:
+            # Add timestamp for cleanup
+            context_with_timestamp = {
+                **rich_context,
+                'stored_at': datetime.now().timestamp()
+            }
+            
+            self._button_context_storage[content_id] = context_with_timestamp
+            
+            # Clean old entries (older than 24 hours)
+            self._clean_old_button_contexts()
+            
+            logger.debug(f"Stored button context for content_id: {content_id}")
+            
+        except Exception as e:
+            logger.error(f"Error storing button context: {str(e)}")
+    
+    def get_button_context(self, content_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve stored button context
+        
+        Args:
+            content_id: Unique identifier for the content
+            
+        Returns:
+            Rich context dictionary or None if not found
+        """
+        try:
+            context = self._button_context_storage.get(content_id)
+            
+            if context:
+                # Remove timestamp before returning
+                context_copy = dict(context)
+                context_copy.pop('stored_at', None)
+                
+                logger.debug(f"Retrieved button context for content_id: {content_id}")
+                return context_copy
+            else:
+                logger.warning(f"Button context not found for content_id: {content_id}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error retrieving button context: {str(e)}")
+            return None
+    
+    def _clean_old_button_contexts(self) -> None:
+        """Clean button contexts older than 24 hours"""
+        try:
+            current_time = datetime.now().timestamp()
+            cutoff_time = current_time - (24 * 60 * 60)  # 24 hours ago
+            
+            # Find old entries
+            old_keys = [
+                content_id for content_id, context in self._button_context_storage.items()
+                if context.get('stored_at', 0) < cutoff_time
+            ]
+            
+            # Remove old entries
+            for key in old_keys:
+                del self._button_context_storage[key]
+            
+            if old_keys:
+                logger.debug(f"Cleaned {len(old_keys)} old button contexts")
+                
+        except Exception as e:
+            logger.error(f"Error cleaning old button contexts: {str(e)}")

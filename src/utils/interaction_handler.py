@@ -163,22 +163,35 @@ class InteractionHandler:
     
     def create_interactive_buttons(self, content_id: str, 
                                  current_user_id: Optional[str] = None,
-                                 include_stats: bool = False) -> List[Dict[str, Any]]:
+                                 include_stats: bool = False,
+                                 rich_message_context: Optional[Dict[str, Any]] = None,
+                                 rich_message_service: Optional[Any] = None) -> List[Dict[str, Any]]:
         """
         Create interactive conversation-triggering buttons for Rich Messages.
         
-        Replaces traditional engagement buttons with Bourdain-style conversation starters
-        that trigger dynamic LLM responses instead of static engagement tracking.
+        Creates contextual conversation triggers that generate AI responses aware of
+        both the Rich Message content and selected background image.
+        Uses minimal button data and stores full context server-side to fit LINE's 300 char limit.
         
         Args:
             content_id: Identifier for the content
             current_user_id: Current user ID for personalized responses
             include_stats: Legacy parameter, ignored (no longer showing engagement stats)
+            rich_message_context: Rich context including title, content, image details, theme
+            rich_message_service: Service to store button context (optional)
             
         Returns:
             List of conversation-triggering button configurations for Flex Message
         """
-        # Bourdain-style conversation triggers that send signals to LLM
+        # Store rich context server-side if service is available
+        if rich_message_context and rich_message_service:
+            try:
+                rich_message_service.store_button_context(content_id, rich_message_context)
+                logger.debug(f"Stored rich context for content_id: {content_id}")
+            except Exception as e:
+                logger.error(f"Failed to store button context: {str(e)}")
+        
+        # Create minimal button data to fit LINE's 300 character limit
         conversation_buttons = [
             {
                 "type": "postback",
@@ -186,8 +199,7 @@ class InteractionHandler:
                 "data": json.dumps({
                     "action": "conversation_trigger",
                     "trigger_type": "elaborate",
-                    "content_id": content_id,
-                    "prompt_context": "User wants to hear more depth and perspective on this topic in Bourdain's storytelling style"
+                    "content_id": content_id
                 }),
                 "style": "primary"
             },
@@ -196,9 +208,8 @@ class InteractionHandler:
                 "label": "What's real here?",
                 "data": json.dumps({
                     "action": "conversation_trigger",
-                    "trigger_type": "authentic_take",
-                    "content_id": content_id,
-                    "prompt_context": "User wants Bourdain's authentic, no-bullshit perspective on this topic"
+                    "trigger_type": "authentic_take", 
+                    "content_id": content_id
                 }),
                 "style": "secondary"
             },
@@ -208,8 +219,7 @@ class InteractionHandler:
                 "data": json.dumps({
                     "action": "conversation_trigger",
                     "trigger_type": "experience_story",
-                    "content_id": content_id,
-                    "prompt_context": "User wants to hear a personal story or experience related to this topic in Bourdain's voice"
+                    "content_id": content_id
                 }),
                 "style": "secondary"
             },
@@ -219,8 +229,7 @@ class InteractionHandler:
                 "data": json.dumps({
                     "action": "conversation_trigger", 
                     "trigger_type": "practical_advice",
-                    "content_id": content_id,
-                    "prompt_context": "User wants practical advice or 'recipe' for dealing with this topic, Bourdain-style"
+                    "content_id": content_id
                 }),
                 "style": "secondary" 
             }
@@ -228,9 +237,73 @@ class InteractionHandler:
         
         # Track these as conversation interactions (replace old engagement tracking)
         for button in conversation_buttons:
-            logger.debug(f"Created conversation trigger button: {button['label']} for content {content_id}")
+            data_size = len(button['data'])
+            logger.debug(f"Created minimal button: {button['label']} ({data_size} chars) for content {content_id}")
         
         return conversation_buttons
+    
+    def _build_rich_context_description(self, title: str, content: str, theme: str, image_context: Dict[str, Any]) -> str:
+        """Build a rich context description combining message content and image details"""
+        
+        # Get image details
+        image_desc = image_context.get('description', 'background setting')
+        image_mood = image_context.get('mood', 'atmospheric')
+        image_filename = image_context.get('filename', '')
+        
+        # Create contextual description
+        context_parts = []
+        
+        # Add message context
+        context_parts.append(f"Rich Message titled '{title}' about {theme}")
+        context_parts.append(f"Message content: '{content}'")
+        
+        # Add image context
+        if image_desc and image_desc != 'background setting':
+            context_parts.append(f"Visual setting: {image_desc}")
+        
+        if image_mood and image_mood != 'atmospheric':
+            context_parts.append(f"Visual mood: {image_mood}")
+        
+        # Add filename context for specificity
+        if image_filename:
+            # Extract meaningful context from filename
+            filename_context = self._extract_filename_context(image_filename)
+            if filename_context:
+                context_parts.append(f"Image context: {filename_context}")
+        
+        return " | ".join(context_parts)
+    
+    def _extract_filename_context(self, filename: str) -> str:
+        """Extract contextual meaning from image filename"""
+        filename_lower = filename.lower()
+        
+        # Time context
+        if 'monday' in filename_lower and 'coffee' in filename_lower:
+            return "Monday morning coffee ritual"
+        elif 'weekend' in filename_lower:
+            return "weekend atmosphere"
+        elif 'morning' in filename_lower:
+            return "morning energy"
+        elif 'evening' in filename_lower:
+            return "evening reflection"
+        
+        # Setting context
+        elif 'workspace' in filename_lower:
+            return "workspace environment"
+        elif 'nature' in filename_lower:
+            return "natural outdoor setting"
+        elif 'hiking' in filename_lower:
+            return "outdoor adventure context"
+        elif 'cats' in filename_lower:
+            return "playful, relatable moment"
+        
+        # Activity context
+        elif 'running' in filename_lower:
+            return "movement and determination"
+        elif 'lion' in filename_lower:
+            return "strength and power imagery"
+        
+        return ""
     
     def create_reaction_quick_reply(self, content_id: str) -> QuickReply:
         """
@@ -344,7 +417,8 @@ class InteractionHandler:
         
         return FlexSendMessage(alt_text="Share options", contents=bubble)
     
-    def handle_user_interaction(self, user_id: str, interaction_data: Dict[str, Any]) -> Dict[str, Any]:
+    def handle_user_interaction(self, user_id: str, interaction_data: Dict[str, Any], 
+                               rich_message_service: Optional[Any] = None) -> Dict[str, Any]:
         """
         Handle a user interaction with Rich Message content.
         
@@ -380,7 +454,7 @@ class InteractionHandler:
                 )
             elif action == "conversation_trigger":
                 return self._handle_conversation_trigger(
-                    user_id, content_id, interaction_data
+                    user_id, content_id, interaction_data, rich_message_service
                 )
             else:
                 return {
@@ -529,11 +603,11 @@ class InteractionHandler:
             }
     
     def _handle_conversation_trigger(self, user_id: str, content_id: str, 
-                                   interaction_data: Dict[str, Any]) -> Dict[str, Any]:
+                                   interaction_data: Dict[str, Any],
+                                   rich_message_service: Optional[Any] = None) -> Dict[str, Any]:
         """Handle conversation trigger interactions that generate dynamic Bourdain-style responses."""
         try:
             trigger_type = interaction_data.get("trigger_type")
-            prompt_context = interaction_data.get("prompt_context", "")
             
             if not trigger_type:
                 return {
@@ -541,6 +615,18 @@ class InteractionHandler:
                     "error": "Missing trigger type",
                     "response_type": "error"
                 }
+            
+            # Try to lookup rich context from service
+            rich_context = None
+            if rich_message_service:
+                try:
+                    rich_context = rich_message_service.get_button_context(content_id)
+                    if rich_context:
+                        logger.debug(f"Retrieved rich context for content_id {content_id}")
+                    else:
+                        logger.warning(f"No rich context found for content_id {content_id}")
+                except Exception as e:
+                    logger.error(f"Failed to lookup rich context: {str(e)}")
             
             # Generate Bourdain-style response based on trigger type
             if not self.openai_service or not self.content_generator:
@@ -553,9 +639,9 @@ class InteractionHandler:
                     "trigger_type": trigger_type
                 }
             
-            # Create conversation trigger prompt
-            conversation_prompt = self._build_conversation_trigger_prompt(
-                trigger_type, prompt_context, content_id
+            # Create conversation trigger prompt with rich context
+            conversation_prompt = self._build_conversation_trigger_prompt_with_context(
+                trigger_type, content_id, rich_context
             )
             
             # Generate AI response
@@ -622,8 +708,9 @@ class InteractionHandler:
     
     def _build_conversation_trigger_prompt(self, trigger_type: str, 
                                          prompt_context: str, 
-                                         content_id: str) -> str:
-        """Build prompt for conversation trigger responses."""
+                                         content_id: str,
+                                         interaction_data: Optional[Dict[str, Any]] = None) -> str:
+        """Build enhanced prompt for conversation trigger responses with rich context."""
         
         # Base Bourdain personality from prompt manager
         try:
@@ -633,21 +720,122 @@ class InteractionHandler:
         except:
             base_personality = "Respond as Anthony Bourdain - authentic, conversational, no bullshit."
         
-        # Trigger-specific instructions
+        # Check for rich context from button data
+        rich_context = None
+        message_title = None
+        message_content = None
+        image_context = None
+        
+        if interaction_data:
+            rich_context = interaction_data.get('rich_context')
+            message_title = interaction_data.get('message_title')
+            message_content = interaction_data.get('message_content')
+            image_context = interaction_data.get('image_context', {})
+        
+        # Enhanced trigger-specific instructions that reference visual context
         trigger_instructions = {
-            "elaborate": "User wants you to elaborate and go deeper on this topic. Share more perspective, context, or storytelling in your authentic voice.",
-            "authentic_take": "User wants your no-bullshit, authentic take on this topic. Cut through any pretense and give them the real perspective.",
-            "experience_story": "User wants to hear a personal story or experience related to this topic. Share something real and human.",
-            "practical_advice": "User wants practical advice or a 'recipe' for dealing with this topic. Give them something actionable in your conversational style."
+            "elaborate": "User wants you to elaborate and go deeper on this topic, connecting the message to the visual setting. Reference both the content and the scene/mood shown in the background.",
+            "authentic_take": "User wants your no-bullshit, authentic take on this topic. Connect your perspective to what they're seeing - both the message content and the visual setting.",
+            "experience_story": "User wants to hear a personal story or experience that relates to both the topic and the setting/mood of the scene. Make it feel like you're both looking at the same thing.",
+            "practical_advice": "User wants practical advice for this topic, using the visual setting as a metaphor or reference point. Make it actionable but grounded in the context they're seeing."
         }
         
-        instruction = trigger_instructions.get(trigger_type, "Engage in authentic conversation about this topic.")
+        instruction = trigger_instructions.get(trigger_type, "Engage in authentic conversation about this topic and setting.")
         
-        conversation_prompt = f"""{base_personality}
+        # Build enhanced prompt with rich context
+        if rich_context and message_title and image_context:
+            # Enhanced prompt with visual and content awareness
+            image_desc = image_context.get('description', 'the background scene')
+            image_mood = image_context.get('mood', 'atmospheric setting')
+            
+            conversation_prompt = f"""{base_personality}
+
+RICH MESSAGE CONTEXT:
+You just sent a Rich Message with the title "{message_title}" and content: "{message_content}"
+
+VISUAL CONTEXT:
+The message was displayed over: {image_desc}
+The visual mood is: {image_mood}
+
+CONVERSATION TRIGGER: {trigger_type}
+USER REQUEST: {prompt_context}
+INSTRUCTION: {instruction}
+
+Generate a response that feels like you're looking at the same scene and commenting on both the topic AND the visual context. Reference the setting naturally - don't force it, but let it inform your perspective.
+
+Respond in 2-3 sentences maximum. Keep it conversational, authentic, and mobile-friendly. This is a quick follow-up that should feel connected to what they just saw.
+
+Be genuine, helpful, and true to your voice. No corporate speak, no motivational poster wisdom."""
+        else:
+            # Fallback to simpler prompt if rich context not available
+            conversation_prompt = f"""{base_personality}
 
 CONVERSATION TRIGGER: {trigger_type}
 CONTEXT: {prompt_context}
 INSTRUCTION: {instruction}
+
+Respond in 2-3 sentences maximum. Keep it conversational, authentic, and mobile-friendly. This is a quick follow-up to a Rich Message, not a long monologue.
+
+Be genuine, helpful, and true to your voice. No corporate speak, no motivational poster wisdom."""
+
+        return conversation_prompt
+    
+    def _build_conversation_trigger_prompt_with_context(self, trigger_type: str, 
+                                                       content_id: str,
+                                                       rich_context: Optional[Dict[str, Any]] = None) -> str:
+        """Build enhanced prompt using rich context from server-side storage."""
+        
+        # Base Bourdain personality from prompt manager
+        try:
+            from src.utils.prompt_manager import PromptManager
+            prompt_manager = PromptManager()
+            base_personality = prompt_manager.get_component("core_personality")
+        except:
+            base_personality = "Respond as Anthony Bourdain - authentic, conversational, no bullshit."
+        
+        # Enhanced trigger-specific instructions that reference visual context
+        trigger_instructions = {
+            "elaborate": "User wants you to elaborate and go deeper on this topic, connecting the message to the visual setting. Reference both the content and the scene/mood shown in the background.",
+            "authentic_take": "User wants your no-bullshit, authentic take on this topic. Connect your perspective to what they're seeing - both the message content and the visual setting.",
+            "experience_story": "User wants to hear a personal story or experience that relates to both the topic and the setting/mood of the scene. Make it feel like you're both looking at the same thing.",
+            "practical_advice": "User wants practical advice for this topic, using the visual setting as a metaphor or reference point. Make it actionable but grounded in the context they're seeing."
+        }
+        
+        instruction = trigger_instructions.get(trigger_type, "Engage in authentic conversation about this topic and setting.")
+        
+        # Build enhanced prompt with rich context if available
+        if rich_context:
+            message_title = rich_context.get('title', 'the message')
+            message_content = rich_context.get('content', 'the content')
+            image_context = rich_context.get('image_context', {})
+            image_desc = image_context.get('description', 'the background scene')
+            image_mood = image_context.get('mood', 'atmospheric setting')
+            
+            conversation_prompt = f"""{base_personality}
+
+RICH MESSAGE CONTEXT:
+You just sent a Rich Message with the title "{message_title}" and content: "{message_content}"
+
+VISUAL CONTEXT:
+The message was displayed over: {image_desc}
+The visual mood is: {image_mood}
+
+CONVERSATION TRIGGER: {trigger_type}
+INSTRUCTION: {instruction}
+
+Generate a response that feels like you're looking at the same scene and commenting on both the topic AND the visual context. Reference the setting naturally - don't force it, but let it inform your perspective.
+
+Respond in 2-3 sentences maximum. Keep it conversational, authentic, and mobile-friendly. This is a quick follow-up that should feel connected to what they just saw.
+
+Be genuine, helpful, and true to your voice. No corporate speak, no motivational poster wisdom."""
+        else:
+            # Fallback to simpler prompt if rich context not available
+            conversation_prompt = f"""{base_personality}
+
+CONVERSATION TRIGGER: {trigger_type}
+INSTRUCTION: {instruction}
+
+The user clicked a conversation trigger button on a Rich Message (content_id: {content_id}). Respond in your authentic voice.
 
 Respond in 2-3 sentences maximum. Keep it conversational, authentic, and mobile-friendly. This is a quick follow-up to a Rich Message, not a long monologue.
 
