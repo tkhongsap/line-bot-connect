@@ -67,13 +67,14 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes
 
-## LineOA Rich Message System Completed (July 27, 2025)
-- ✅ **LineOA Integration Confirmed**: Successfully tested rich message sending through LINE Official Account
+## LineOA Rich Message System with Image Display Fixed (July 27, 2025)
+- ✅ **Image Display Fixed**: Added Flask route `/static/backgrounds/` to serve template images via HTTPS URLs
+- ✅ **LineOA Integration Confirmed**: Successfully tested rich message sending through LINE Official Account  
 - ✅ **AI Content Generation**: Azure OpenAI GPT-4.1 generates professional content tailored to template themes
-- ✅ **Template System**: 50+ beautiful templates working (productivity, inspiration, motivation, nature themes)
+- ✅ **Template System**: 50+ beautiful templates with full image display (productivity, inspiration, motivation, nature themes)
 - ✅ **Interactive Features**: Like, Share, Save, React buttons fully functional for engagement tracking
 - ✅ **Professional Messaging**: Business-appropriate content generation for official account broadcasting
-- ✅ **Production Ready**: System confirmed working for follower engagement and marketing campaigns
+- ✅ **Production Ready**: Complete system with visual templates confirmed working for follower engagement and marketing campaigns
 
 ## Rich Message Automation Testing System (July 2025)
 - ✅ **Rich Message Testing Scripts**: Created comprehensive testing tools for safe rich message automation
