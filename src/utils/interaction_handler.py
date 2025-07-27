@@ -133,11 +133,12 @@ class InteractionHandler:
     and provides engagement analytics and response generation.
     """
     
-    def __init__(self):
+    def __init__(self, openai_service=None):
         """Initialize the InteractionHandler."""
         self.user_interactions: List[UserInteractionRecord] = []
         self.content_stats: Dict[str, ContentInteractionStats] = {}
         self.user_profiles: Dict[str, UserEngagementProfile] = {}
+        self.openai_service = openai_service
         
         # Configuration
         self.interaction_retention_days = 90  # Keep interactions for 90 days
@@ -146,94 +147,90 @@ class InteractionHandler:
         # Analytics integration
         self.analytics_tracker = get_analytics_tracker()
         
+        # Initialize Bourdain content generator for conversation triggers
+        if self.openai_service:
+            try:
+                from src.utils.rich_message_content_generator import RichMessageContentGenerator
+                self.content_generator = RichMessageContentGenerator(self.openai_service)
+                logger.info("InteractionHandler initialized with conversation trigger support")
+            except ImportError as e:
+                logger.warning(f"Could not initialize content generator: {e}")
+                self.content_generator = None
+        else:
+            self.content_generator = None
+        
         logger.info("InteractionHandler initialized with analytics tracking")
     
     def create_interactive_buttons(self, content_id: str, 
                                  current_user_id: Optional[str] = None,
                                  include_stats: bool = False) -> List[Dict[str, Any]]:
         """
-        Create interactive button configurations for Rich Messages.
+        Create interactive conversation-triggering buttons for Rich Messages.
+        
+        Replaces traditional engagement buttons with Bourdain-style conversation starters
+        that trigger dynamic LLM responses instead of static engagement tracking.
         
         Args:
             content_id: Identifier for the content
-            current_user_id: Current user ID for personalized buttons
-            include_stats: Whether to include interaction statistics
+            current_user_id: Current user ID for personalized responses
+            include_stats: Legacy parameter, ignored (no longer showing engagement stats)
             
         Returns:
-            List of button configurations for Flex Message
+            List of conversation-triggering button configurations for Flex Message
         """
-        buttons = []
+        # Bourdain-style conversation triggers that send signals to LLM
+        conversation_buttons = [
+            {
+                "type": "postback",
+                "label": "Tell me more",
+                "data": json.dumps({
+                    "action": "conversation_trigger",
+                    "trigger_type": "elaborate",
+                    "content_id": content_id,
+                    "prompt_context": "User wants to hear more depth and perspective on this topic in Bourdain's storytelling style"
+                }),
+                "style": "primary"
+            },
+            {
+                "type": "postback", 
+                "label": "What's real here?",
+                "data": json.dumps({
+                    "action": "conversation_trigger",
+                    "trigger_type": "authentic_take",
+                    "content_id": content_id,
+                    "prompt_context": "User wants Bourdain's authentic, no-bullshit perspective on this topic"
+                }),
+                "style": "secondary"
+            },
+            {
+                "type": "postback",
+                "label": "Been there?", 
+                "data": json.dumps({
+                    "action": "conversation_trigger",
+                    "trigger_type": "experience_story",
+                    "content_id": content_id,
+                    "prompt_context": "User wants to hear a personal story or experience related to this topic in Bourdain's voice"
+                }),
+                "style": "secondary"
+            },
+            {
+                "type": "postback",
+                "label": "Recipe?",
+                "data": json.dumps({
+                    "action": "conversation_trigger", 
+                    "trigger_type": "practical_advice",
+                    "content_id": content_id,
+                    "prompt_context": "User wants practical advice or 'recipe' for dealing with this topic, Bourdain-style"
+                }),
+                "style": "secondary" 
+            }
+        ]
         
-        # Get current stats for this content
-        stats = self.content_stats.get(content_id, ContentInteractionStats(content_id))
+        # Track these as conversation interactions (replace old engagement tracking)
+        for button in conversation_buttons:
+            logger.debug(f"Created conversation trigger button: {button['label']} for content {content_id}")
         
-        # Check user's current interactions with this content
-        user_liked = False
-        user_saved = False
-        if current_user_id:
-            user_interactions = [
-                i for i in self.user_interactions 
-                if i.user_id == current_user_id and i.content_id == content_id
-            ]
-            user_liked = any(i.interaction_type == InteractionType.LIKE for i in user_interactions)
-            user_saved = any(i.interaction_type == InteractionType.SAVE for i in user_interactions)
-        
-        # Like/Unlike button
-        like_label = f"❤️ {stats.total_likes}" if include_stats else ("💔 Unlike" if user_liked else "❤️ Like")
-        like_action = InteractionType.UNLIKE.value if user_liked else InteractionType.LIKE.value
-        
-        buttons.append({
-            "type": "postback",
-            "label": like_label,
-            "data": json.dumps({
-                "action": "interaction",
-                "type": like_action,
-                "content_id": content_id
-            }),
-            "style": "primary" if user_liked else "secondary"
-        })
-        
-        # Share button
-        share_label = f"📤 {stats.total_shares}" if include_stats else "📤 Share"
-        buttons.append({
-            "type": "postback",
-            "label": share_label,
-            "data": json.dumps({
-                "action": "interaction",
-                "type": InteractionType.SHARE.value,
-                "content_id": content_id
-            }),
-            "style": "secondary"
-        })
-        
-        # Save/Unsave button
-        save_label = f"🔖 {stats.total_saves}" if include_stats else ("📌 Saved" if user_saved else "🔖 Save")
-        save_action = InteractionType.UNSAVE.value if user_saved else InteractionType.SAVE.value
-        
-        buttons.append({
-            "type": "postback",
-            "label": save_label,
-            "data": json.dumps({
-                "action": "interaction",
-                "type": save_action,
-                "content_id": content_id
-            }),
-            "style": "primary" if user_saved else "secondary"
-        })
-        
-        # React button (opens reaction menu)
-        react_label = f"😊 {stats.total_reactions}" if include_stats else "😊 React"
-        buttons.append({
-            "type": "postback",
-            "label": react_label,
-            "data": json.dumps({
-                "action": "show_reactions",
-                "content_id": content_id
-            }),
-            "style": "secondary"
-        })
-        
-        return buttons
+        return conversation_buttons
     
     def create_reaction_quick_reply(self, content_id: str) -> QuickReply:
         """
@@ -381,6 +378,10 @@ class InteractionHandler:
                 return self._handle_share_platform(
                     user_id, content_id, interaction_data.get("platform")
                 )
+            elif action == "conversation_trigger":
+                return self._handle_conversation_trigger(
+                    user_id, content_id, interaction_data
+                )
             else:
                 return {
                     "success": False,
@@ -526,6 +527,142 @@ class InteractionHandler:
                 "response_type": "message",
                 "message": "📤 Content shared successfully!"
             }
+    
+    def _handle_conversation_trigger(self, user_id: str, content_id: str, 
+                                   interaction_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle conversation trigger interactions that generate dynamic Bourdain-style responses."""
+        try:
+            trigger_type = interaction_data.get("trigger_type")
+            prompt_context = interaction_data.get("prompt_context", "")
+            
+            if not trigger_type:
+                return {
+                    "success": False,
+                    "error": "Missing trigger type",
+                    "response_type": "error"
+                }
+            
+            # Generate Bourdain-style response based on trigger type
+            if not self.openai_service or not self.content_generator:
+                # Fallback responses when AI is not available
+                fallback_responses = self._get_conversation_fallbacks(trigger_type)
+                return {
+                    "success": True,
+                    "response_type": "message",
+                    "message": fallback_responses.get(trigger_type, "Real talk. Let's dive deeper into this."),
+                    "trigger_type": trigger_type
+                }
+            
+            # Create conversation trigger prompt
+            conversation_prompt = self._build_conversation_trigger_prompt(
+                trigger_type, prompt_context, content_id
+            )
+            
+            # Generate AI response
+            try:
+                response = self.openai_service.get_response(
+                    user_id=f"conversation_trigger_{user_id[:8]}",
+                    message=conversation_prompt,
+                    use_streaming=False
+                )
+                
+                if response and response.get('success') and response.get('message'):
+                    ai_message = response['message'].strip()
+                    
+                    # Record this as a conversation interaction
+                    interaction_record = UserInteractionRecord(
+                        interaction_id=str(uuid.uuid4()),
+                        user_id=user_id,
+                        content_id=content_id,
+                        interaction_type=InteractionType.COMMENT,  # Use COMMENT as closest match
+                        timestamp=datetime.now(timezone.utc),
+                        comment_text=f"Conversation trigger: {trigger_type}",
+                        metadata={"trigger_type": trigger_type, "ai_generated": True}
+                    )
+                    
+                    self.user_interactions.append(interaction_record)
+                    self._update_user_profile(user_id, InteractionType.COMMENT, interaction_record)
+                    
+                    logger.info(f"Generated conversation response for trigger '{trigger_type}' for user {user_id[:8]}...")
+                    
+                    return {
+                        "success": True,
+                        "response_type": "message",
+                        "message": ai_message,
+                        "trigger_type": trigger_type,
+                        "ai_generated": True
+                    }
+                else:
+                    # AI failed, use fallback
+                    fallback_responses = self._get_conversation_fallbacks(trigger_type)
+                    return {
+                        "success": True,
+                        "response_type": "message", 
+                        "message": fallback_responses.get(trigger_type, "Let me think about that..."),
+                        "trigger_type": trigger_type
+                    }
+                    
+            except Exception as ai_error:
+                logger.error(f"AI conversation generation failed: {str(ai_error)}")
+                fallback_responses = self._get_conversation_fallbacks(trigger_type)
+                return {
+                    "success": True,
+                    "response_type": "message",
+                    "message": fallback_responses.get(trigger_type, "That's a good question. Let me get back to you on that."),
+                    "trigger_type": trigger_type
+                }
+                
+        except Exception as e:
+            logger.error(f"Error handling conversation trigger: {str(e)}")
+            return {
+                "success": False,
+                "error": "Failed to process conversation trigger",
+                "response_type": "error"
+            }
+    
+    def _build_conversation_trigger_prompt(self, trigger_type: str, 
+                                         prompt_context: str, 
+                                         content_id: str) -> str:
+        """Build prompt for conversation trigger responses."""
+        
+        # Base Bourdain personality from prompt manager
+        try:
+            from src.utils.prompt_manager import PromptManager
+            prompt_manager = PromptManager()
+            base_personality = prompt_manager.get_component("core_personality")
+        except:
+            base_personality = "Respond as Anthony Bourdain - authentic, conversational, no bullshit."
+        
+        # Trigger-specific instructions
+        trigger_instructions = {
+            "elaborate": "User wants you to elaborate and go deeper on this topic. Share more perspective, context, or storytelling in your authentic voice.",
+            "authentic_take": "User wants your no-bullshit, authentic take on this topic. Cut through any pretense and give them the real perspective.",
+            "experience_story": "User wants to hear a personal story or experience related to this topic. Share something real and human.",
+            "practical_advice": "User wants practical advice or a 'recipe' for dealing with this topic. Give them something actionable in your conversational style."
+        }
+        
+        instruction = trigger_instructions.get(trigger_type, "Engage in authentic conversation about this topic.")
+        
+        conversation_prompt = f"""{base_personality}
+
+CONVERSATION TRIGGER: {trigger_type}
+CONTEXT: {prompt_context}
+INSTRUCTION: {instruction}
+
+Respond in 2-3 sentences maximum. Keep it conversational, authentic, and mobile-friendly. This is a quick follow-up to a Rich Message, not a long monologue.
+
+Be genuine, helpful, and true to your voice. No corporate speak, no motivational poster wisdom."""
+
+        return conversation_prompt
+    
+    def _get_conversation_fallbacks(self, trigger_type: str) -> Dict[str, str]:
+        """Get fallback responses for conversation triggers when AI is unavailable."""
+        return {
+            "elaborate": "There's always more to the story. The real stuff happens in the details most people miss.",
+            "authentic_take": "Cut through the bullshit. What you're really dealing with here is human nature.",
+            "experience_story": "I've been there. Different kitchen, same heat. Same lessons apply.",
+            "practical_advice": "Simple recipe: Stay curious. Listen more than you talk. Trust your instincts."
+        }
     
     def _remove_user_interaction(self, user_id: str, content_id: str, 
                                 interaction_type: InteractionType) -> None:
@@ -814,9 +951,9 @@ class InteractionHandler:
 # Global interaction handler instance
 _interaction_handler = None
 
-def get_interaction_handler() -> InteractionHandler:
+def get_interaction_handler(openai_service=None) -> InteractionHandler:
     """Get global interaction handler instance."""
     global _interaction_handler
     if _interaction_handler is None:
-        _interaction_handler = InteractionHandler()
+        _interaction_handler = InteractionHandler(openai_service)
     return _interaction_handler

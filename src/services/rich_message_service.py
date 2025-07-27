@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class RichMessageService:
     """Service for managing Rich Message automation and delivery"""
     
-    def __init__(self, line_bot_api, template_manager=None, content_generator=None, base_url=None):
+    def __init__(self, line_bot_api, template_manager=None, content_generator=None, base_url=None, openai_service=None):
         """
         Initialize Rich Message Service
         
@@ -33,11 +33,18 @@ class RichMessageService:
             template_manager: Template management utility (optional, will be implemented later)
             content_generator: Content generation utility (optional, will be implemented later)
             base_url: Base URL for generating image links (optional)
+            openai_service: OpenAI service for Bourdain-style content generation (optional)
         """
         self.line_bot_api = line_bot_api
         self.template_manager = template_manager
         self.content_generator = content_generator
         self.base_url = base_url
+        
+        # Initialize Bourdain-style content generator
+        if not self.content_generator and openai_service:
+            from src.utils.rich_message_content_generator import RichMessageContentGenerator
+            self.content_generator = RichMessageContentGenerator(openai_service)
+            logger.info("Initialized RichMessageContentGenerator with Bourdain persona")
         
         # Rich Menu dimensions for LINE
         self.RICH_MENU_WIDTH = 2500
@@ -47,6 +54,100 @@ class RichMessageService:
         self._rich_menu_configs = self._load_rich_menu_configs()
         
         logger.info("RichMessageService initialized")
+    
+    def generate_bourdain_content(self, 
+                                theme: str = "motivation",
+                                template_name: Optional[str] = None,
+                                user_context: Optional[str] = None) -> Dict[str, str]:
+        """
+        Generate Rich Message content using Anthony Bourdain's persona
+        
+        Args:
+            theme: Content theme (productivity, wellness, motivation, inspiration, food, travel)
+            template_name: Name of the template being used (for mood context)
+            user_context: Optional user context for personalization
+            
+        Returns:
+            Dictionary with 'title' and 'content' keys in Bourdain's authentic voice
+        """
+        if not self.content_generator:
+            logger.warning("No content generator available, using emergency fallback")
+            return self._get_emergency_bourdain_content(theme)
+        
+        try:
+            # Extract template mood from template name
+            template_mood = self._extract_template_mood(template_name) if template_name else None
+            
+            # Generate content using Bourdain persona
+            content = self.content_generator.generate_rich_message_content(
+                theme=theme,
+                template_mood=template_mood,
+                user_context=user_context
+            )
+            
+            # Validate content meets Rich Message constraints
+            if self.content_generator.validate_content_length(content['title'], content['content']):
+                logger.info(f"Generated Bourdain-style Rich Message content for theme: {theme}")
+                return content
+            else:
+                logger.warning("Generated content too long, using optimized fallback")
+                return self._get_emergency_bourdain_content(theme)
+                
+        except Exception as e:
+            logger.error(f"Failed to generate Bourdain content: {str(e)}")
+            return self._get_emergency_bourdain_content(theme)
+    
+    def _extract_template_mood(self, template_name: str) -> Optional[str]:
+        """Extract mood context from template name"""
+        mood_mapping = {
+            "coffee": "energetic and focused",
+            "productivity": "practical and direct",
+            "nature": "contemplative and grounded",
+            "wellness": "authentic and human",
+            "motivation": "honest and encouraging",
+            "abstract": "bold and artistic",
+            "geometric": "sharp and precise",
+            "sunset": "reflective and warm",
+            "sunrise": "energetic and hopeful"
+        }
+        
+        template_lower = template_name.lower()
+        for key, mood in mood_mapping.items():
+            if key in template_lower:
+                return mood
+        
+        return "authentic and conversational"
+    
+    def _get_emergency_bourdain_content(self, theme: str) -> Dict[str, str]:
+        """Emergency fallback content in Bourdain's style"""
+        emergency_content = {
+            "productivity": {
+                "title": "☕ Real Work",
+                "content": "Skip the productivity porn. Find people who actually do the work. Learn from them."
+            },
+            "wellness": {
+                "title": "🚶‍♂️ Honest Wellness", 
+                "content": "Real wellness isn't in an app. It's a walk, a conversation, time to think."
+            },
+            "motivation": {
+                "title": "🔥 No Bullshit",
+                "content": "Motivation from people who've never failed is worthless. Trust your scars."
+            },
+            "inspiration": {
+                "title": "✨ Real Stories",
+                "content": "Best stories come from taxi drivers and street vendors. Listen to them."
+            },
+            "food": {
+                "title": "🍜 Honest Food",
+                "content": "Best meals happen at plastic tables with questionable hygiene. That's where the soul is."
+            },
+            "travel": {
+                "title": "🗺️ Real Places",
+                "content": "Tourist traps are bullshit. Find where locals eat. That's where culture lives."
+            }
+        }
+        
+        return emergency_content.get(theme, emergency_content["motivation"])
     
     def _get_base_url(self) -> str:
         """Get the base URL for generating image links"""
