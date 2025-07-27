@@ -86,7 +86,7 @@ class RichMessageContentGenerator:
                 # Generate content using AI with Bourdain persona
                 response = self.openai_service.get_response(
                     user_id="rich_message_generator",
-                    message=prompt,
+                    user_message=prompt,
                     use_streaming=False
                 )
                 

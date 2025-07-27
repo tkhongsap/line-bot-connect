@@ -648,7 +648,7 @@ class InteractionHandler:
             try:
                 response = self.openai_service.get_response(
                     user_id=f"conversation_trigger_{user_id[:8]}",
-                    message=conversation_prompt,
+                    user_message=conversation_prompt,
                     use_streaming=False
                 )
                 
