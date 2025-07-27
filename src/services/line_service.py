@@ -33,6 +33,7 @@ class LineService:
         @self.handler.add(MessageEvent, message=ImageMessage)
         def handle_image_message(event):
             self._handle_image_message(event)
+
             
         # Register postback handler for Rich Message interactions
         @self.handler.add(PostbackEvent)
@@ -203,6 +204,53 @@ class LineService:
                 error_msg = "圖像處理時發生錯誤，請稍後再試。\nError processing image, please try again later."
                 self._send_message(event.reply_token, error_msg)
             except:
+                pass
+
+    def _handle_file_message(self, event):
+        """Handle incoming file message"""
+        try:
+            user_id = event.source.user_id
+            message_id = event.message.id
+            file_name = getattr(event.message, "file_name", "uploaded_file")
+
+            logger.info(f"Received file from user {user_id[:8]}...: {file_name}")
+
+            from src.utils.file_utils import FileProcessor
+            processor = FileProcessor()
+            download = processor.download_file_from_line(self.line_bot_api, message_id)
+
+            if not download or not download.get("success", False):
+                error_msg = "檔案下載失敗，請稍後再試。\nFile download failed, please try again later."
+                self._send_message(event.reply_token, error_msg)
+                return
+
+            file_data = download["file_data"]
+
+            ai_response = self.openai_service.get_response(
+                user_id,
+                f"Please analyze the attached file: {file_name}",
+                use_streaming=False,
+                file_data=file_data,
+                file_name=file_name,
+            )
+
+            if ai_response["success"]:
+                self._send_message(event.reply_token, ai_response["message"])
+                tokens_used = ai_response.get("tokens_used", 0)
+                logger.info(
+                    f"Sent file analysis response to user {user_id[:8]}... [{tokens_used} tokens, {download.get('size', 0)} bytes]"
+                )
+            else:
+                error_msg = "檔案分析失敗，請稍後再試。\nFile analysis failed, please try again later."
+                self._send_message(event.reply_token, error_msg)
+                logger.error(f"AI file analysis failed: {ai_response['error']}")
+
+        except Exception as e:
+            logger.error(f"Error handling file message: {str(e)}")
+            try:
+                error_msg = "處理檔案時發生錯誤，請稍後再試。\nError processing file, please try again later."
+                self._send_message(event.reply_token, error_msg)
+            except Exception:
                 pass
 
 

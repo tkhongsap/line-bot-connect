@@ -307,6 +307,7 @@ class TestLineService:
         # Check that truncated user ID is in logs
         truncated_id = sample_line_message_event.source.user_id[:8]
         assert truncated_id in log_output
+
     
     # Rich Message Tests
     def test_send_rich_message_success(self, line_service):

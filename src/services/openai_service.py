@@ -92,14 +92,14 @@ class OpenAIService:
         
         return self.responses_api_available
 
-    def get_response(self, user_id, user_message, use_streaming=True, image_data=None):
+    def get_response(self, user_id, user_message, use_streaming=True, image_data=None, file_data=None, file_name=None):
         """Get AI response using Responses API with Chat Completions fallback"""
         try:
             # Use circuit breaker pattern to determine which API to try first
             if self._should_use_responses_api():
-                return self._get_response_with_responses_api(user_id, user_message, use_streaming, image_data)
+                return self._get_response_with_responses_api(user_id, user_message, use_streaming, image_data, file_data, file_name)
             else:
-                return self._get_response_with_chat_completions(user_id, user_message, use_streaming, image_data)
+                return self._get_response_with_chat_completions(user_id, user_message, use_streaming, image_data, file_data, file_name)
                 
         except Exception as e:
             logger.error(f"API error for user {user_id}: {str(e)}")
@@ -109,7 +109,7 @@ class OpenAIService:
                 'message': None
             }
 
-    def _get_response_with_responses_api(self, user_id, user_message, use_streaming=True, image_data=None):
+    def _get_response_with_responses_api(self, user_id, user_message, use_streaming=True, image_data=None, file_data=None, file_name=None):
         """Get response using Responses API with server-side conversation state"""
         try:
             # Track successful API usage
@@ -117,12 +117,20 @@ class OpenAIService:
             # Get the last response ID for this user to maintain conversation context
             previous_response_id = self.conversation_service.get_last_response_id(user_id)
             
-            # Add user message to conversation history with image metadata
-            message_type = "image" if image_data else "text"
+            # Add user message to conversation history with media metadata
+            if image_data:
+                message_type = "image"
+            elif file_data:
+                message_type = "file"
+            else:
+                message_type = "text"
+
             metadata = {"api_used": "responses"}
             if image_data:
                 metadata["has_image"] = True
                 metadata["image_processed"] = True
+            if file_data:
+                metadata["has_file"] = True
             
             self.conversation_service.add_message(
                 user_id, 
@@ -132,7 +140,7 @@ class OpenAIService:
                 metadata=metadata
             )
             
-            # Create the user input with optional image using Responses API format
+            # Create the user input with optional media using Responses API format
             if image_data:
                 user_input = [
                     {
@@ -147,6 +155,17 @@ class OpenAIService:
                                 }
                             }
                         ]
+                    }
+                ]
+            elif file_data:
+                file_id = self._upload_file(file_data, file_name)
+                user_input = [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "input_text", "text": user_message},
+                            {"type": "input_file", "file_id": file_id},
+                        ],
                     }
                 ]
             else:
@@ -164,15 +183,23 @@ class OpenAIService:
             logger.info(f"Falling back to Chat Completions for user {user_id}")
             return self._get_response_with_chat_completions(user_id, user_message, use_streaming, image_data)
 
-    def _get_response_with_chat_completions(self, user_id, user_message, use_streaming=True, image_data=None):
+    def _get_response_with_chat_completions(self, user_id, user_message, use_streaming=True, image_data=None, file_data=None, file_name=None):
         """Get response using traditional Chat Completions API"""
         try:
             # Add user message to conversation history
-            message_type = "image" if image_data else "text"
+            if image_data:
+                message_type = "image"
+            elif file_data:
+                message_type = "file"
+            else:
+                message_type = "text"
+
             metadata = {"api_used": "chat_completions"}
             if image_data:
                 metadata["has_image"] = True
                 metadata["image_processed"] = True
+            if file_data:
+                metadata["has_file"] = True
             
             self.conversation_service.add_message(
                 user_id, 
@@ -196,14 +223,15 @@ class OpenAIService:
                     "content": msg["content"]
                 })
             
-            # Create the current user message with optional image
-            current_message = self._create_message_with_image_chat_completions(user_message, image_data)
+            # Create the current user message with optional media
+            file_id = self._upload_file(file_data, file_name) if file_data else None
+            current_message = self._create_message_with_image_chat_completions(user_message, image_data, file_id)
             messages.append(current_message)
             
             if use_streaming:
-                return self._get_streaming_response_chat_completions(user_id, messages)
+                return self._get_streaming_response_chat_completions(user_id, messages, file_id)
             else:
-                return self._get_standard_response_chat_completions(user_id, messages)
+                return self._get_standard_response_chat_completions(user_id, messages, file_id)
                 
         except Exception as e:
             logger.error(f"Chat Completions API error for user {user_id}: {str(e)}")
@@ -256,7 +284,7 @@ class OpenAIService:
             self._record_api_failure(e)
             raise e
 
-    def _get_standard_response_chat_completions(self, user_id, messages):
+    def _get_standard_response_chat_completions(self, user_id, messages, file_id=None):
         """Get standard response from Chat Completions API"""
         try:
             from typing import cast
@@ -264,16 +292,20 @@ class OpenAIService:
             
             formatted_messages = cast(list[ChatCompletionMessageParam], messages)
             
-            response = self.fallback_client.chat.completions.create(
-                model=self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
-                messages=formatted_messages,
-                max_tokens=800,
-                temperature=0.7,
-                top_p=0.9,
-                frequency_penalty=0.1,
-                presence_penalty=0.1,
-                stream=False
-            )
+            kwargs = {
+                "model": self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
+                "messages": formatted_messages,
+                "max_tokens": 800,
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "frequency_penalty": 0.1,
+                "presence_penalty": 0.1,
+                "stream": False,
+            }
+            if file_id:
+                kwargs["file_ids"] = [file_id]
+
+            response = self.fallback_client.chat.completions.create(**kwargs)
             
             message = response.choices[0].message
             ai_message = message.content
@@ -362,7 +394,7 @@ class OpenAIService:
             self._record_api_failure(e)
             raise e
 
-    def _get_streaming_response_chat_completions(self, user_id, messages):
+    def _get_streaming_response_chat_completions(self, user_id, messages, file_id=None):
         """Get streaming response from Chat Completions API"""
         try:
             from typing import cast
@@ -370,16 +402,20 @@ class OpenAIService:
             
             formatted_messages = cast(list[ChatCompletionMessageParam], messages)
             
-            stream = self.fallback_client.chat.completions.create(
-                model=self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
-                messages=formatted_messages,
-                max_tokens=800,
-                temperature=0.7,
-                top_p=0.9,
-                frequency_penalty=0.1,
-                presence_penalty=0.1,
-                stream=True
-            )
+            kwargs = {
+                "model": self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
+                "messages": formatted_messages,
+                "max_tokens": 800,
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "frequency_penalty": 0.1,
+                "presence_penalty": 0.1,
+                "stream": True,
+            }
+            if file_id:
+                kwargs["file_ids"] = [file_id]
+
+            stream = self.fallback_client.chat.completions.create(**kwargs)
             
             full_response = ""
             total_tokens = 0
@@ -454,29 +490,28 @@ class OpenAIService:
                 'message': None
             }
 
-    def _create_message_with_image_chat_completions(self, text_content: str, image_data=None):
-        """Create message structure with optional image for Chat Completions API"""
-        if not image_data:
+    def _create_message_with_image_chat_completions(self, text_content: str, image_data=None, file_id=None):
+        """Create message structure with optional image or file for Chat Completions API"""
+        if not image_data and not file_id:
             return {
                 "role": "user",
                 "content": text_content
             }
-        
-        return {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": text_content
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": image_data
-                    }
-                }
-            ]
-        }
+
+        content = [
+            {"type": "text", "text": text_content}
+        ]
+
+        if image_data:
+            content.append({
+                "type": "image_url",
+                "image_url": {"url": image_data}
+            })
+
+        if file_id:
+            content.append({"type": "file_id", "file_id": file_id})
+
+        return {"role": "user", "content": content}
 
     def get_streaming_response_with_callback(self, user_id, user_input, previous_response_id=None, chunk_callback=None):
         """Get streaming response with callback support (legacy method for compatibility)"""
@@ -493,6 +528,14 @@ class OpenAIService:
             else:
                 messages = [{"role": "system", "content": self.system_prompt}] + user_input
             return self._get_streaming_response_chat_completions(user_id, messages)
+
+    def _upload_file(self, file_data: bytes, file_name: str | None) -> str:
+        """Upload a file to OpenAI and return the file ID"""
+        import io
+        upload_name = file_name or "upload.dat"
+        file_obj = io.BytesIO(file_data)
+        response = self.client.files.create(file=(upload_name, file_obj), purpose="vision")
+        return response.id
 
     def _record_api_success(self):
         """Record successful API usage and reset failure count"""
