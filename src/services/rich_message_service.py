@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class RichMessageService:
     """Service for managing Rich Message automation and delivery"""
     
-    def __init__(self, line_bot_api, template_manager=None, content_generator=None):
+    def __init__(self, line_bot_api, template_manager=None, content_generator=None, base_url=None):
         """
         Initialize Rich Message Service
         
@@ -32,10 +32,12 @@ class RichMessageService:
             line_bot_api: LINE Bot API instance for sending messages
             template_manager: Template management utility (optional, will be implemented later)
             content_generator: Content generation utility (optional, will be implemented later)
+            base_url: Base URL for generating image links (optional)
         """
         self.line_bot_api = line_bot_api
         self.template_manager = template_manager
         self.content_generator = content_generator
+        self.base_url = base_url
         
         # Rich Menu dimensions for LINE
         self.RICH_MENU_WIDTH = 2500
@@ -45,6 +47,21 @@ class RichMessageService:
         self._rich_menu_configs = self._load_rich_menu_configs()
         
         logger.info("RichMessageService initialized")
+    
+    def _get_base_url(self) -> str:
+        """Get the base URL for generating image links"""
+        if self.base_url:
+            return self.base_url.rstrip('/')
+        
+        try:
+            from flask import request
+            if hasattr(request, 'host_url'):
+                return request.host_url.rstrip('/')
+        except:
+            pass
+        
+        # Fallback to environment variable or default
+        return os.environ.get('BASE_URL', 'https://line-bot-connect.replit.app')
     
     def _load_rich_menu_configs(self) -> Dict[str, Any]:
         """Load Rich Menu configuration templates"""
@@ -197,9 +214,26 @@ class RichMessageService:
                 aspect_mode="cover"
             )
         elif image_path:
-            # For local images, we'll need to upload them first
-            # This is a placeholder - in practice, you'd upload to a CDN
-            logger.warning("Local image path provided but not implemented for Flex Messages")
+            # Convert local image path to public URL using our static route
+            try:
+                # Extract filename from path
+                filename = os.path.basename(image_path)
+                
+                # Generate public URL using the static route we added
+                base_url = self._get_base_url()
+                public_image_url = f"{base_url}/static/backgrounds/{filename}"
+                
+                hero_component = ImageComponent(
+                    url=public_image_url,
+                    size="full",
+                    aspect_ratio="20:13", 
+                    aspect_mode="cover"
+                )
+                logger.info(f"Generated image URL for {filename}: {public_image_url}")
+                
+            except Exception as e:
+                logger.error(f"Failed to generate image URL for {image_path}: {str(e)}")
+                hero_component = None
         
         # Create body content
         body_contents = [

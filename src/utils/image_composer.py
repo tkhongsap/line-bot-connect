@@ -673,16 +673,16 @@ class ImageComposer:
                 validation_result["image_info"]["dimensions"] = {"width": width, "height": height}
                 validation_result["image_info"]["format"] = img.format
                 
-                # LINE Rich Message optimal size is 2500x1686px
+                # Note: We accept images in their original dimensions
+                # LINE Rich Message optimal size is 2500x1686px, but we preserve original quality
                 if width != 2500 or height != 1686:
-                    validation_result["issues"].append(f"Non-optimal dimensions: {width}x{height} (recommended: 2500x1686)")
-                    validation_result["recommendations"].append("Resize to 2500x1686 for optimal display")
+                    validation_result["image_info"]["note"] = f"Using original dimensions: {width}x{height} (LINE optimal: 2500x1686)"
                 
-                # Check aspect ratio
+                # Check aspect ratio (informational only)
                 aspect_ratio = width / height
                 optimal_ratio = 2500 / 1686
-                if abs(aspect_ratio - optimal_ratio) > 0.1:
-                    validation_result["issues"].append(f"Aspect ratio may cause distortion: {aspect_ratio:.2f}")
+                validation_result["image_info"]["aspect_ratio"] = f"{aspect_ratio:.2f}"
+                validation_result["image_info"]["optimal_aspect_ratio"] = f"{optimal_ratio:.2f}"
             
             # If no critical issues, mark as valid
             validation_result["valid"] = len([issue for issue in validation_result["issues"] 

@@ -1,7 +1,7 @@
 import os
 import logging
 import secrets
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template, jsonify, send_from_directory, abort
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -134,6 +134,40 @@ def conversations_status():
             for user_id, conv in conversation_service.conversations.items()
         ]
     })
+
+@app.route('/static/backgrounds/<filename>')
+@limiter.limit("100 per minute")  # Allow frequent access to background images
+def serve_background_image(filename):
+    """Serve background images for Rich Messages"""
+    try:
+        # Define the backgrounds directory path
+        backgrounds_dir = os.path.join(os.path.dirname(__file__), 'templates', 'rich_messages', 'backgrounds')
+        
+        # Security check: ensure filename doesn't contain path traversal
+        if '..' in filename or '/' in filename or '\\' in filename:
+            logger.warning(f"Invalid filename attempted: {filename}")
+            abort(400)
+        
+        # Check if file exists and is an image
+        allowed_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
+        file_ext = os.path.splitext(filename)[1].lower()
+        
+        if file_ext not in allowed_extensions:
+            logger.warning(f"Invalid file extension: {filename}")
+            abort(400)
+        
+        file_path = os.path.join(backgrounds_dir, filename)
+        if not os.path.exists(file_path):
+            logger.warning(f"Background image not found: {filename}")
+            abort(404)
+        
+        logger.info(f"Serving background image: {filename}")
+        return send_from_directory(backgrounds_dir, filename, 
+                                 mimetype=f'image/{file_ext[1:]}')
+        
+    except Exception as e:
+        logger.error(f"Error serving background image {filename}: {str(e)}")
+        abort(500)
 
 if __name__ == '__main__':
     # Only enable debug mode if explicitly set in environment

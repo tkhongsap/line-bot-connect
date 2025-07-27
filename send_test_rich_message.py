@@ -31,11 +31,11 @@ sys.path.append('/home/runner/workspace/src')
 # Get this by sending any message to your LINE bot and checking the logs
 YOUR_USER_ID = "YOUR_LINE_USER_ID_HERE"  # Replace with your actual User ID
 
-# Available templates with their themes
+# Available templates with their themes (updated with new naming convention)
 AVAILABLE_TEMPLATES = {
     "1": {
         "name": "🌟 The Little Prince",
-        "file": "general_motivation_inspiration_prince_01_v1.jpg",
+        "file": "inspiration_little_prince.png",
         "theme": "inspiration",
         "quotes": [
             "What is essential is invisible to the eye. It is only with the heart that one can see rightly.",
@@ -45,8 +45,8 @@ AVAILABLE_TEMPLATES = {
         ]
     },
     "2": {
-        "name": "🦁 Lion Motivation",
-        "file": "general_motivation_motivation_lion_01_v1.jpg",
+        "name": "🦁 Lion Duality",
+        "file": "motivation_lion_duality.png",
         "theme": "motivation",
         "quotes": [
             "Be brave. Take risks. Nothing can substitute experience.",
@@ -57,7 +57,7 @@ AVAILABLE_TEMPLATES = {
     },
     "3": {
         "name": "🏃 Running Energy",
-        "file": "general_motivation_motivation_running_01_v1.jpg",
+        "file": "motivation_running_figure.png",
         "theme": "motivation",
         "quotes": [
             "Every mile begins with a single step.",
@@ -67,8 +67,8 @@ AVAILABLE_TEMPLATES = {
         ]
     },
     "4": {
-        "name": "🌸 Nature Serenity",
-        "file": "evening_calm_nature_serene_01_v1.jpg",
+        "name": "🌸 Nature Spirits",
+        "file": "wellness_nature_spirits.png",
         "theme": "wellness",
         "quotes": [
             "In nature, nothing is perfect and everything is perfect.",
@@ -79,7 +79,7 @@ AVAILABLE_TEMPLATES = {
     },
     "5": {
         "name": "🎨 Creative Inspiration",
-        "file": "general_motivation_inspiration_creative_01_v1.jpg",
+        "file": "inspiration_creative_minimal.png",
         "theme": "inspiration",
         "quotes": [
             "Creativity takes courage.",
@@ -89,14 +89,36 @@ AVAILABLE_TEMPLATES = {
         ]
     },
     "6": {
-        "name": "🌅 Morning Energy",
-        "file": "morning_energy_inspiration_uplifting_01_v1.jpg",
-        "theme": "motivation",
+        "name": "🎮 GameBoy Aquarium",
+        "file": "inspiration_gameboy_aquarium.png",
+        "theme": "inspiration",
         "quotes": [
             "Every morning brings new potential, but only if you make the most of it.",
             "Today is the first day of the rest of your life.",
-            "Rise up, start fresh, see the bright opportunity in each new day.",
-            "Morning is an important time of day because how you spend your morning can often tell you what kind of day you are going to have."
+            "Innovation happens when imagination meets possibility.",
+            "The future belongs to those who believe in the beauty of their dreams."
+        ]
+    },
+    "7": {
+        "name": "☕ Monday Coffee",
+        "file": "productivity_monday_coffee.png",
+        "theme": "productivity",
+        "quotes": [
+            "Monday is a fresh start. Make it amazing!",
+            "Coffee: because adulting is hard.",
+            "Start where you are. Use what you have. Do what you can.",
+            "The way to get started is to quit talking and begin doing."
+        ]
+    },
+    "8": {
+        "name": "🐱 Wellness Cats",
+        "file": "wellness_cats_storybook.png",
+        "theme": "wellness",
+        "quotes": [
+            "Sometimes the smallest things take up the most room in your heart.",
+            "Happiness is a warm cat.",
+            "Time spent with cats is never wasted.",
+            "A cat has absolute emotional honesty: human beings, for one reason or another, may hide their feelings, but a cat does not."
         ]
     }
 }
@@ -136,7 +158,7 @@ def test_rich_message(template_choice, send_mode=False):
     # Validate template choice
     if template_choice not in AVAILABLE_TEMPLATES:
         print(f"❌ Invalid template choice: {template_choice}")
-        print("Please choose a number from 1-6")
+        print("Please choose a number from 1-8")
         return False
     
     template = AVAILABLE_TEMPLATES[template_choice]
@@ -311,7 +333,7 @@ def main():
         
         print("🎮 TESTING OPTIONS:")
         print("=" * 20)
-        print("• Choose template number (1-6)")
+        print("• Choose template number (1-8)")
         print("• Add '--send' to actually send (e.g., '1 --send')")
         print("• Type 'quit' to exit")
         print()
@@ -333,7 +355,7 @@ def main():
             
             if template_choice not in AVAILABLE_TEMPLATES:
                 print(f"❌ Invalid choice: {template_choice}")
-                print("Please choose a number from 1-6")
+                print("Please choose a number from 1-8")
                 continue
             
             # Confirm live sending
