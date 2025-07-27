@@ -252,6 +252,9 @@ class LineService:
             
             logger.info(f"Received postback from user {user_id[:8]}...: {postback_data}")
             
+            # Debug logging for postback parsing
+            logger.debug(f"Parsing postback data: {postback_data}")
+            
             # Try to parse as JSON first (new format), then fall back to old format
             try:
                 interaction_data = json.loads(postback_data)
@@ -266,10 +269,14 @@ class LineService:
             
             # Handle different postback actions
             action = interaction_data.get('action', '')
+            logger.debug(f"Processing postback action: '{action}' with data: {interaction_data}")
             
             if action == 'interaction':
                 # New Rich Message interaction system
                 self._handle_rich_message_interaction(event, interaction_data)
+            elif action == 'conversation_trigger':
+                # Handle conversation trigger buttons (Tell me more, What's real here?, etc.)
+                self._handle_conversation_trigger_action(event, interaction_data)
             elif action == 'show_reactions':
                 self._handle_show_reactions_action(event, interaction_data)
             elif action == 'share_platform':
@@ -281,7 +288,7 @@ class LineService:
                 # Legacy actions - convert to new format
                 self._handle_legacy_action(event, action, interaction_data)
             else:
-                logger.warning(f"Unknown postback action: {action}")
+                logger.warning(f"Unknown postback action: {action} - Data: {postback_data}")
                 
         except Exception as e:
             logger.error(f"Error handling postback event: {str(e)}")
@@ -292,13 +299,52 @@ class LineService:
             except:
                 pass
     
+    def _handle_conversation_trigger_action(self, event, interaction_data):
+        """Handle conversation trigger actions (Tell me more, What's real here?, etc.)"""
+        try:
+            from src.utils.interaction_handler import get_interaction_handler
+            
+            user_id = event.source.user_id
+            trigger_type = interaction_data.get('trigger_type', 'unknown')
+            content_id = interaction_data.get('content_id', 'unknown')
+            
+            logger.info(f"Processing conversation trigger '{trigger_type}' from user {user_id[:8]}... for content {content_id}")
+            
+            # Get interaction handler with OpenAI service for AI responses
+            interaction_handler = get_interaction_handler(self.openai_service)
+            
+            # Process the conversation trigger
+            result = interaction_handler.handle_user_interaction(user_id, interaction_data)
+            
+            if result['success']:
+                message = result.get('message', 'Thanks for your interest!')
+                
+                # Log successful response generation
+                if result.get('ai_generated'):
+                    logger.info(f"Generated AI conversation response for trigger '{trigger_type}' for user {user_id[:8]}...")
+                else:
+                    logger.info(f"Used fallback response for trigger '{trigger_type}' for user {user_id[:8]}...")
+                
+                # Send the response
+                self._send_message(event.reply_token, message)
+                
+            else:
+                error_msg = "Sorry, I couldn't process that right now. Please try again."
+                self._send_message(event.reply_token, error_msg)
+                logger.warning(f"Conversation trigger handling failed for user {user_id[:8]}...: {result.get('error')}")
+                
+        except Exception as e:
+            logger.error(f"Error handling conversation trigger: {str(e)}")
+            error_msg = "There was an issue processing your request. Please try again."
+            self._send_message(event.reply_token, error_msg)
+
     def _handle_rich_message_interaction(self, event, interaction_data):
         """Handle Rich Message interaction using the interaction handler system"""
         try:
             from src.utils.interaction_handler import get_interaction_handler
             
             user_id = event.source.user_id
-            interaction_handler = get_interaction_handler()
+            interaction_handler = get_interaction_handler(self.openai_service)
             
             # Process the interaction
             result = interaction_handler.handle_user_interaction(user_id, interaction_data)
@@ -346,7 +392,7 @@ class LineService:
             from src.utils.interaction_handler import get_interaction_handler
             
             user_id = event.source.user_id
-            interaction_handler = get_interaction_handler()
+            interaction_handler = get_interaction_handler(self.openai_service)
             content_id = interaction_data.get('content_id')
             
             if not content_id:
@@ -373,7 +419,7 @@ class LineService:
             from src.utils.interaction_handler import get_interaction_handler
             
             user_id = event.source.user_id
-            interaction_handler = get_interaction_handler()
+            interaction_handler = get_interaction_handler(self.openai_service)
             
             # Process the share action
             result = interaction_handler.handle_user_interaction(user_id, interaction_data)
