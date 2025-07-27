@@ -140,27 +140,6 @@ def conversations_status():
 def serve_template_image(filename):
     """Serve background images for Rich Messages"""
     try:
-        # Security: Only allow .png, .jpg, .jpeg files
-        allowed_extensions = {'.png', '.jpg', '.jpeg', '.gif'}
-        file_ext = os.path.splitext(filename)[1].lower()
-        
-        if file_ext not in allowed_extensions:
-            abort(404)
-        
-        # Serve from templates/rich_messages/backgrounds directory
-        backgrounds_dir = os.path.join(os.getcwd(), 'templates', 'rich_messages', 'backgrounds')
-        
-        if not os.path.exists(os.path.join(backgrounds_dir, filename)):
-            logger.warning(f"Background image not found: {filename}")
-            abort(404)
-        
-        logger.info(f"Serving background image: {filename}")
-        return send_from_directory(backgrounds_dir, filename)
-        
-    except Exception as e:
-        logger.error(f"Error serving background image {filename}: {str(e)}")
-        abort(500)
-        
         # Security check: ensure filename doesn't contain path traversal
         if '..' in filename or '/' in filename or '\\' in filename:
             logger.warning(f"Invalid filename attempted: {filename}")
@@ -174,7 +153,10 @@ def serve_template_image(filename):
             logger.warning(f"Invalid file extension: {filename}")
             abort(400)
         
+        # Serve from templates/rich_messages/backgrounds directory
+        backgrounds_dir = os.path.join(os.getcwd(), 'templates', 'rich_messages', 'backgrounds')
         file_path = os.path.join(backgrounds_dir, filename)
+        
         if not os.path.exists(file_path):
             logger.warning(f"Background image not found: {filename}")
             abort(404)

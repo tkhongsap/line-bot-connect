@@ -142,12 +142,27 @@ Key packages defined in `pyproject.toml`:
 - `line-bot-sdk`: Official LINE Bot SDK for Python
 - `openai`: Azure OpenAI Python client
 - `python-dotenv`: Environment variable management
-- `pillow`: Image processing for vision capabilities
+- `pillow`: Image processing for vision capabilities and Rich Message composition
 - `requests`: HTTP client for image downloads
 - `pytest`: Testing framework with coverage reporting
 - `flask-sqlalchemy` + `psycopg2-binary`: Database ORM and PostgreSQL adapter (installed but not yet implemented)
+- `celery` + `redis`: Background task processing for Rich Message automation
+- `flask-limiter`: Rate limiting for API endpoints
+- `flask-caching`: Response caching for improved performance
+- `aiohttp` + `aiofiles`: Async HTTP and file operations
 
 ## Current Features
+
+### Rich Message Automation System (NEW)
+- **AI-Generated Content**: Daily motivational messages created by Azure OpenAI with personalized themes
+- **Template Library**: 20+ categorized background templates (motivation, wellness, productivity, inspiration)
+- **Dynamic Composition**: Real-time text overlay on template backgrounds using PIL
+- **Intelligent Selection**: Template selection based on content mood, time of day, and user preferences
+- **Scheduled Delivery**: Celery-based automation for consistent daily message delivery
+- **Interactive Elements**: Rich Messages include action buttons and postback handling
+- **Analytics Dashboard**: Comprehensive tracking of delivery success, user interactions, and engagement metrics
+- **Multi-category Support**: Motivation, wellness, productivity, and inspiration themes
+- **Template Management**: Hot-swappable templates with metadata-driven categorization
 
 ### Multilingual Support
 - **Comprehensive Language Coverage**: Supports 9 major languages with native-speaker-level responses
@@ -172,15 +187,23 @@ Key packages defined in `pyproject.toml`:
 
 ### Enhanced Conversation Memory
 - **Extended History**: 100 messages per conversation for better context retention
+- **Storage Options**: In-memory (development) or Redis (production) via factory pattern
 - **Message Type Tracking**: Tracks text, image, and mixed message types
 - **Automatic Cleanup**: Old conversations removed when limits are reached
 
 ### Usage Examples
+#### Conversational AI
 - "What's the latest news about Thailand?" → Gets current news with sources
 - "What's Tesla's stock price today?" → Provides real-time market data
 - "What's the weather in Bangkok?" → Returns current weather conditions
 - Send image + "What do you see?" → Detailed image analysis with context
 - Language switching: Works seamlessly across all 9 supported languages (English, Thai, Chinese, Japanese, Korean, Vietnamese, Spanish, French, German) with appropriate cultural context
+
+#### Rich Message Automation
+- Daily 9 AM motivational messages with AI-generated content
+- Template backgrounds automatically selected based on content mood
+- Interactive buttons for user engagement tracking
+- Admin dashboard for monitoring delivery analytics and managing templates
 
 ## Testing Infrastructure
 
@@ -201,17 +224,24 @@ The codebase includes comprehensive testing with `pytest`:
 ## Development Notes
 
 ### Current Limitations
-- Conversation storage is in-memory only (lost on restart)
-- Single-instance deployment required for session continuity
-- No database persistence layer implemented
-- Web search limited to OpenAI's built-in tool (no external search APIs)
-- Image processing limited to 5MB files and 2048px dimensions
+- **Conversation storage**: Defaults to in-memory (lost on restart), Redis backend available but requires configuration
+- **Single-instance deployment**: Required for in-memory conversation continuity (resolved with Redis backend)
+- **Database persistence**: ORM installed but not yet fully implemented for Rich Message analytics persistence
+- **Web search**: Limited to OpenAI's built-in tool (no external search APIs)
+- **Image processing**: Limited to 5MB files and 2048px dimensions for conversation images
+- **Rich Message templates**: Fixed template library (20+ templates), no dynamic template generation
+- **Celery dependency**: Rich Message automation requires Redis for background task processing
 
 ### Monitoring Endpoints
 - `/`: Dashboard with user statistics and service status
 - `/health`: Health check endpoint returning service status
 - `/conversations`: Conversation statistics for monitoring
 - `/webhook`: LINE Bot webhook endpoint (POST) and verification (GET)
+- `/static/backgrounds/<filename>`: Serves Rich Message template backgrounds
+- `/admin/`: Rich Message management dashboard (admin interface)
+- `/admin/templates`: Template library management
+- `/admin/analytics`: Delivery analytics and user engagement metrics
+- `/admin/settings`: Rich Message automation configuration
 
 ### Logging Configuration
 - Structured logging with configurable levels via `LOG_LEVEL` environment variable

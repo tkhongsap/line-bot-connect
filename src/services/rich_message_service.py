@@ -50,18 +50,32 @@ class RichMessageService:
     
     def _get_base_url(self) -> str:
         """Get the base URL for generating image links"""
+        base_url = None
+        
         if self.base_url:
-            return self.base_url.rstrip('/')
+            base_url = self.base_url.rstrip('/')
+        else:
+            # First try to get from Flask request context (if available)
+            try:
+                from flask import request, has_request_context
+                if has_request_context() and hasattr(request, 'host_url'):
+                    base_url = request.host_url.rstrip('/')
+            except (ImportError, RuntimeError):
+                # No Flask context available (e.g., in Celery tasks)
+                pass
+            
+            # Fallback to environment variable or Replit default
+            if not base_url:
+                base_url = os.environ.get('BASE_URL', 'https://line-bot-connect.replit.app')
         
-        try:
-            from flask import request
-            if hasattr(request, 'host_url'):
-                return request.host_url.rstrip('/')
-        except:
-            pass
-        
-        # Fallback to environment variable or default
-        return os.environ.get('BASE_URL', 'https://line-bot-connect.replit.app')
+        # Always ensure HTTPS for Replit deployments (LINE requires HTTPS)
+        if 'replit.app' in base_url and base_url.startswith('http://'):
+            base_url = base_url.replace('http://', 'https://')
+        elif base_url.startswith('http://') and not base_url.startswith('http://localhost'):
+            # Convert HTTP to HTTPS for production (except localhost)
+            base_url = base_url.replace('http://', 'https://')
+            
+        return base_url.rstrip('/')
     
     def _load_rich_menu_configs(self) -> Dict[str, Any]:
         """Load Rich Menu configuration templates"""
