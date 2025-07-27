@@ -1034,7 +1034,8 @@ Create content that connects to this specific visual context. Make Bourdain's vo
             return rich_menu_id
             
         except LineBotApiError as e:
-            logger.error(f"Failed to create Rich Menu: {e.status_code} - {e.error.message}")
+            error_message = e.error.message if e.error else "Unknown error"
+            logger.error(f"Failed to create Rich Menu: {e.status_code} - {error_message}")
             return None
         except Exception as e:
             logger.error(f"Unexpected error creating Rich Menu: {str(e)}")
@@ -1059,7 +1060,8 @@ Create content that connects to this specific visual context. Make Bourdain's vo
             return True
             
         except LineBotApiError as e:
-            logger.error(f"Failed to upload Rich Menu image: {e.status_code} - {e.error.message}")
+            error_message = e.error.message if e.error else "Unknown error"
+            logger.error(f"Failed to upload Rich Menu image: {e.status_code} - {error_message}")
             return False
         except Exception as e:
             logger.error(f"Unexpected error uploading Rich Menu image: {str(e)}")
@@ -1081,7 +1083,8 @@ Create content that connects to this specific visual context. Make Bourdain's vo
             return True
             
         except LineBotApiError as e:
-            logger.error(f"Failed to set default Rich Menu: {e.status_code} - {e.error.message}")
+            error_message = e.error.message if e.error else "Unknown error"
+            logger.error(f"Failed to set default Rich Menu: {e.status_code} - {error_message}")
             return False
         except Exception as e:
             logger.error(f"Unexpected error setting default Rich Menu: {str(e)}")
@@ -1424,7 +1427,8 @@ Create content that connects to this specific visual context. Make Bourdain's vo
             }
             
         except LineBotApiError as e:
-            error_msg = f"Failed to send Rich Message: {e.status_code} - {e.error.message}"
+            error_message = e.error.message if e.error else "Unknown error"
+            error_msg = f"Failed to send Rich Message: {e.status_code} - {error_message}"
             logger.error(error_msg)
             return {
                 "success": False,
@@ -1473,7 +1477,8 @@ Create content that connects to this specific visual context. Make Bourdain's vo
             }
             
         except LineBotApiError as e:
-            error_msg = f"Failed to broadcast Rich Message: {e.status_code} - {e.error.message}"
+            error_message = e.error.message if e.error else "Unknown error"
+            error_msg = f"Failed to broadcast Rich Message: {e.status_code} - {error_message}"
             logger.error(error_msg)
             return {
                 "success": False,
@@ -1505,7 +1510,8 @@ Create content that connects to this specific visual context. Make Bourdain's vo
             return True
             
         except LineBotApiError as e:
-            logger.error(f"Failed to delete Rich Menu: {e.status_code} - {e.error.message}")
+            error_message = e.error.message if e.error else "Unknown error"
+            logger.error(f"Failed to delete Rich Menu: {e.status_code} - {error_message}")
             return False
         except Exception as e:
             logger.error(f"Unexpected error deleting Rich Menu: {str(e)}")
@@ -1538,7 +1544,8 @@ Create content that connects to this specific visual context. Make Bourdain's vo
             return menu_list
             
         except LineBotApiError as e:
-            logger.error(f"Failed to list Rich Menus: {e.status_code} - {e.error.message}")
+            error_message = e.error.message if e.error else "Unknown error"
+            logger.error(f"Failed to list Rich Menus: {e.status_code} - {error_message}")
             return []
         except Exception as e:
             logger.error(f"Unexpected error listing Rich Menus: {str(e)}")

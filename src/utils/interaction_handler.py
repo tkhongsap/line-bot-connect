@@ -652,32 +652,49 @@ class InteractionHandler:
                     use_streaming=False
                 )
                 
-                if response and response.get('success') and response.get('message'):
-                    ai_message = response['message'].strip()
+                # Handle both string and dictionary responses from OpenAI service
+                if response:
+                    # If response is a string, treat it as the message directly
+                    if isinstance(response, str):
+                        ai_message = response.strip()
+                    # If response is a dictionary, extract the message
+                    elif isinstance(response, dict) and response.get('success') and response.get('message'):
+                        ai_message = response['message'].strip()
+                    else:
+                        # Invalid response format, use fallback
+                        fallback_responses = self._get_conversation_fallbacks(trigger_type)
+                        return {
+                            "success": True,
+                            "response_type": "message", 
+                            "message": fallback_responses.get(trigger_type, "Let me think about that..."),
+                            "trigger_type": trigger_type
+                        }
                     
-                    # Record this as a conversation interaction
-                    interaction_record = UserInteractionRecord(
-                        interaction_id=str(uuid.uuid4()),
-                        user_id=user_id,
-                        content_id=content_id,
-                        interaction_type=InteractionType.COMMENT,  # Use COMMENT as closest match
-                        timestamp=datetime.now(timezone.utc),
-                        comment_text=f"Conversation trigger: {trigger_type}",
-                        metadata={"trigger_type": trigger_type, "ai_generated": True}
-                    )
-                    
-                    self.user_interactions.append(interaction_record)
-                    self._update_user_profile(user_id, InteractionType.COMMENT, interaction_record)
-                    
-                    logger.info(f"Generated conversation response for trigger '{trigger_type}' for user {user_id[:8]}...")
-                    
-                    return {
-                        "success": True,
-                        "response_type": "message",
-                        "message": ai_message,
-                        "trigger_type": trigger_type,
-                        "ai_generated": True
-                    }
+                    # If we have a valid AI message, process it
+                    if ai_message:
+                        # Record this as a conversation interaction
+                        interaction_record = UserInteractionRecord(
+                            interaction_id=str(uuid.uuid4()),
+                            user_id=user_id,
+                            content_id=content_id,
+                            interaction_type=InteractionType.COMMENT,  # Use COMMENT as closest match
+                            timestamp=datetime.now(timezone.utc),
+                            comment_text=f"Conversation trigger: {trigger_type}",
+                            metadata={"trigger_type": trigger_type, "ai_generated": True}
+                        )
+                        
+                        self.user_interactions.append(interaction_record)
+                        self._update_user_profile(user_id, InteractionType.COMMENT, interaction_record)
+                        
+                        logger.info(f"Generated conversation response for trigger '{trigger_type}' for user {user_id[:8]}...")
+                        
+                        return {
+                            "success": True,
+                            "response_type": "message",
+                            "message": ai_message,
+                            "trigger_type": trigger_type,
+                            "ai_generated": True
+                        }
                 else:
                     # AI failed, use fallback
                     fallback_responses = self._get_conversation_fallbacks(trigger_type)
