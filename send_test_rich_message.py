@@ -29,7 +29,7 @@ sys.path.append('/home/runner/workspace/src')
 
 # ⚠️ IMPORTANT: Set your LINE User ID here
 # Get this by sending any message to your LINE bot and checking the logs
-YOUR_USER_ID = "YOUR_LINE_USER_ID_HERE"  # Replace with your actual User ID
+YOUR_USER_ID = "U595491d702720bc7c90d50618324cac3"  # Your actual LINE User ID
 
 # Available templates with their themes (updated with new naming convention)
 AVAILABLE_TEMPLATES = {
