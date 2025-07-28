@@ -1,10 +1,19 @@
 import logging
 import time
+import hashlib
 from typing import Optional, Dict, Any
 from openai import AzureOpenAI
+from openai.types.chat import ChatCompletion
 from ..utils.prompt_manager import PromptManager
+from ..utils.cache_manager import get_cache_manager
+from ..exceptions import (
+    OpenAIAPIException, NetworkException, TimeoutException,
+    RateLimitException, ValidationException, BaseBotException,
+    create_correlation_id, wrap_api_exception
+)
+from ..utils.error_handler import StructuredLogger, error_handler, retry_with_backoff
 
-logger = logging.getLogger(__name__)
+logger = StructuredLogger(__name__)
 
 class OpenAIService:
     """Azure OpenAI service with hybrid Responses API + Chat Completions support"""
@@ -17,23 +26,39 @@ class OpenAIService:
         self.prompt_manager = PromptManager()
         self.system_prompt = self.prompt_manager.get_default_system_prompt()
         
+        # Initialize cache manager
+        self.cache_manager = get_cache_manager()
+        
         # Initialize Azure OpenAI client with fallback support
         # Try next generation v1 API first, fall back to standard if needed
         self.base_url = f"{settings.AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai/v1/"
         
-        self.client = AzureOpenAI(
-            api_key=settings.AZURE_OPENAI_API_KEY,
-            api_version="preview",  # For Responses API support
-            base_url=self.base_url,
-            azure_endpoint=None
-        )
-        
-        # Fallback client for Chat Completions if Responses API not available
-        self.fallback_client = AzureOpenAI(
-            api_key=settings.AZURE_OPENAI_API_KEY,
-            api_version=settings.AZURE_OPENAI_API_VERSION,
-            azure_endpoint=settings.AZURE_OPENAI_ENDPOINT
-        )
+        try:
+            self.client = AzureOpenAI(
+                api_key=settings.AZURE_OPENAI_API_KEY,
+                api_version="preview",  # For Responses API support
+                base_url=self.base_url,
+                azure_endpoint=None,
+                timeout=30.0  # Add timeout for better error handling
+            )
+            
+            # Fallback client for Chat Completions if Responses API not available
+            self.fallback_client = AzureOpenAI(
+                api_key=settings.AZURE_OPENAI_API_KEY,
+                api_version=settings.AZURE_OPENAI_API_VERSION,
+                azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
+                timeout=30.0
+            )
+            
+        except Exception as e:
+            raise OpenAIAPIException(
+                message=f"Failed to initialize Azure OpenAI client: {str(e)}",
+                original_exception=e,
+                context={
+                    'endpoint': settings.AZURE_OPENAI_ENDPOINT,
+                    'api_version': settings.AZURE_OPENAI_API_VERSION
+                }
+            )
         
         # Circuit breaker for API availability with TTL cache
         self.responses_api_available = None
@@ -42,6 +67,10 @@ class OpenAIService:
         self.api_failure_count = 0
         self.max_failures_before_fallback = 3
         self.failure_reset_time = 600  # 10 minutes
+        
+        # Caching configuration
+        self.enable_caching = True
+        self.cache_ttl = 3600  # 1 hour default cache TTL
 
     def update_system_prompt(self, prompt_type: str = "default"):
         """Update the system prompt to a different variation"""
@@ -92,24 +121,116 @@ class OpenAIService:
         
         return self.responses_api_available
 
+    @error_handler(reraise=False, default_return={'success': False, 'error': 'OpenAI service unavailable'})
+    @retry_with_backoff(
+        max_attempts=3,
+        base_delay=1.0,
+        max_delay=30.0,
+        handle_types=(OpenAIAPIException, NetworkException, TimeoutException)
+    )
     def get_response(self, user_id, user_message, use_streaming=True, image_data=None, file_data=None, file_name=None):
-        """Get AI response using Responses API with Chat Completions fallback"""
-        try:
-            # Use circuit breaker pattern to determine which API to try first
-            if self._should_use_responses_api():
-                return self._get_response_with_responses_api(user_id, user_message, use_streaming, image_data, file_data, file_name)
-            else:
-                return self._get_response_with_chat_completions(user_id, user_message, use_streaming, image_data, file_data, file_name)
+        """Get AI response using Responses API with Chat Completions fallback, caching, and comprehensive error handling."""
+        correlation_id = create_correlation_id()
+        
+        with logger.context(
+            correlation_id=correlation_id, 
+            operation='get_openai_response',
+            user_id=user_id[:8] + '...' if user_id else None
+        ):
+            logger.info("Processing OpenAI request")
+            
+            try:
+                # Validate inputs
+                if not user_id:
+                    raise ValidationException(
+                        message="User ID is required",
+                        field="user_id",
+                        correlation_id=correlation_id
+                    )
                 
-        except Exception as e:
-            logger.error(f"API error for user {user_id}: {str(e)}")
-            return {
-                'success': False,
-                'error': str(e),
-                'message': None
-            }
+                if not user_message and not image_data:
+                    raise ValidationException(
+                        message="Either user message or image data is required",
+                        field="user_message",
+                        correlation_id=correlation_id
+                    )
+                
+                # Check cache for non-streaming requests without image data
+                if not use_streaming and not image_data and self.enable_caching:
+                    cached_response = self._get_cached_response(
+                        user_id=user_id,
+                        user_message=user_message,
+                        correlation_id=correlation_id
+                    )
+                    if cached_response:
+                        logger.info("Returning cached OpenAI response", correlation_id=correlation_id)
+                        return cached_response
+                
+                # Use circuit breaker pattern to determine which API to try first
+                if self._should_use_responses_api():
+                    response = self._get_response_with_responses_api(
+                        user_id, user_message, use_streaming, image_data, 
+                        file_data, file_name, correlation_id
+                    )
+                else:
+                    response = self._get_response_with_chat_completions(
+                        user_id, user_message, use_streaming, image_data, 
+                        file_data, file_name, correlation_id
+                    )
+                
+                # Cache successful non-streaming responses
+                if (response.get('success') and not use_streaming and 
+                    not image_data and self.enable_caching):
+                    self._cache_response(
+                        user_id=user_id,
+                        user_message=user_message,
+                        response=response,
+                        correlation_id=correlation_id
+                    )
+                
+                logger.info(
+                    f"OpenAI request completed successfully",
+                    correlation_id=correlation_id,
+                    extra_context={
+                        'response_length': len(response.get('message', '')) if response.get('message') else 0,
+                        'tokens_used': response.get('tokens_used', 0)
+                    }
+                )
+                
+                return response
+                
+            except ValidationException:
+                # Re-raise validation errors
+                raise
+                
+            except Exception as e:
+                # Wrap OpenAI API errors
+                if hasattr(e, 'status_code'):
+                    if e.status_code == 429:
+                        raise RateLimitException(
+                            message=f"OpenAI API rate limit exceeded: {str(e)}",
+                            retry_after=60,
+                            service="Azure_OpenAI",
+                            correlation_id=correlation_id,
+                            original_exception=e
+                        )
+                    else:
+                        raise OpenAIAPIException(
+                            message=f"OpenAI API error: {str(e)}",
+                            status_code=e.status_code,
+                            correlation_id=correlation_id,
+                            original_exception=e
+                        )
+                else:
+                    # Wrap other exceptions
+                    raise wrap_api_exception(
+                        original_exception=e,
+                        api_name="Azure_OpenAI",
+                        operation="get_response",
+                        correlation_id=correlation_id
+                    )
 
-    def _get_response_with_responses_api(self, user_id, user_message, use_streaming=True, image_data=None, file_data=None, file_name=None):
+    def _get_response_with_responses_api(self, user_id, user_message, use_streaming=True, image_data=None, file_data=None, file_name=None, correlation_id=None):
         """Get response using Responses API with server-side conversation state"""
         try:
             # Track successful API usage
@@ -183,7 +304,7 @@ class OpenAIService:
             logger.info(f"Falling back to Chat Completions for user {user_id}")
             return self._get_response_with_chat_completions(user_id, user_message, use_streaming, image_data)
 
-    def _get_response_with_chat_completions(self, user_id, user_message, use_streaming=True, image_data=None, file_data=None, file_name=None):
+    def _get_response_with_chat_completions(self, user_id, user_message, use_streaming=True, image_data=None, file_data=None, file_name=None, correlation_id=None):
         """Get response using traditional Chat Completions API"""
         try:
             # Add user message to conversation history
@@ -618,3 +739,86 @@ class OpenAIService:
                 'error': str(e),
                 'api_type': 'unknown'
             }
+    
+    def _get_cached_response(self, user_id: str, user_message: str, correlation_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve cached OpenAI response if available."""
+        try:
+            # Get conversation context hash for cache key
+            context_hash = self._generate_context_hash(user_id)
+            
+            cached_response = self.cache_manager.get_cached_openai_response(
+                user_id=user_id,
+                message=user_message,
+                context_hash=context_hash,
+                model=self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
+                temperature=0.7
+            )
+            
+            if cached_response:
+                return {
+                    'success': True,
+                    'message': cached_response,
+                    'tokens_used': 0,  # No tokens used for cached response
+                    'cached': True,
+                    'correlation_id': correlation_id
+                }
+                
+        except Exception as e:
+            logger.warning(
+                f"Cache retrieval failed: {str(e)}",
+                correlation_id=correlation_id
+            )
+        
+        return None
+    
+    def _cache_response(self, user_id: str, user_message: str, response: Dict[str, Any], correlation_id: str):
+        """Cache successful OpenAI response."""
+        try:
+            if not response.get('success') or not response.get('message'):
+                return
+            
+            # Get conversation context hash for cache key
+            context_hash = self._generate_context_hash(user_id)
+            
+            success = self.cache_manager.cache_openai_response(
+                user_id=user_id,
+                message=user_message,
+                response=response['message'],
+                context_hash=context_hash,
+                model=self.settings.AZURE_OPENAI_DEPLOYMENT_NAME,
+                temperature=0.7,
+                ttl=self.cache_ttl
+            )
+            
+            if success:
+                logger.debug(
+                    "OpenAI response cached successfully",
+                    correlation_id=correlation_id
+                )
+            
+        except Exception as e:
+            logger.warning(
+                f"Cache storage failed: {str(e)}",
+                correlation_id=correlation_id
+            )
+    
+    def _generate_context_hash(self, user_id: str) -> str:
+        """Generate hash of conversation context for cache key."""
+        try:
+            # Get recent conversation history
+            messages = self.conversation_service.get_messages(user_id, limit=5)
+            
+            # Create context string from recent messages
+            context_parts = []
+            for msg in messages[-5:]:  # Last 5 messages for context
+                if msg.get('role') and msg.get('content'):
+                    context_parts.append(f"{msg['role']}:{msg['content'][:100]}")
+            
+            context_string = "|".join(context_parts)
+            
+            # Generate hash
+            return hashlib.sha256(context_string.encode()).hexdigest()[:16]
+            
+        except Exception:
+            # Return empty hash if context generation fails
+            return ""

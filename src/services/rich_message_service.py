@@ -1501,8 +1501,16 @@ Create content that connects to this specific visual context. Make Bourdain's vo
         
         bubble = BubbleContainer(**bubble_kwargs)
         
+        # Safe alt text generation
+        if content and len(content) > 50:
+            alt_text = f"{title}: {content[:50]}..."
+        elif content:
+            alt_text = f"{title}: {content}"
+        else:
+            alt_text = title or "Rich Message"
+        
         return FlexSendMessage(
-            alt_text=f"{title}: {content[:50]}..." if len(content) > 50 else f"{title}: {content}",
+            alt_text=alt_text,
             contents=bubble
         )
     
