@@ -16,6 +16,7 @@ from enum import Enum
 import gc
 import os
 import sys
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,35 @@ class MemoryThreshold:
     process_memory_mb: Optional[int] = None
     callback: Optional[Callable] = None
     description: str = ""
+
+
+@dataclass
+class MemoryAlert:
+    """Memory alert notification"""
+    alert_id: str
+    level: MemoryAlertLevel
+    title: str
+    message: str
+    memory_stats: MemoryStats
+    threshold: MemoryThreshold
+    timestamp: datetime
+    acknowledged: bool = False
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert alert to dictionary for serialization."""
+        return {
+            'alert_id': self.alert_id,
+            'level': self.level.value,
+            'title': self.title,
+            'message': self.message,
+            'memory_percent': self.memory_stats.memory_percent,
+            'swap_percent': self.memory_stats.swap_percent,
+            'process_memory_mb': self.memory_stats.process_memory / (1024**2),
+            'threshold_percent': self.threshold.memory_percent,
+            'threshold_description': self.threshold.description,
+            'timestamp': self.timestamp.isoformat(),
+            'acknowledged': self.acknowledged
+        }
 
 
 class MemoryMonitor:
@@ -111,6 +141,12 @@ class MemoryMonitor:
         # Cleanup callbacks
         self._cleanup_callbacks: List[Callable] = []
         
+        # Alert management
+        self._active_alerts: Dict[str, MemoryAlert] = {}
+        self._alert_callbacks: List[Callable[[MemoryAlert], None]] = []
+        self._last_alert_times: Dict[MemoryAlertLevel, datetime] = {}
+        self._alert_cooldown_minutes = 5  # Prevent spam alerts
+        
         # Performance tracking
         self._stats = {
             'monitoring_cycles': 0,
@@ -119,7 +155,9 @@ class MemoryMonitor:
             'memory_pressure_events': 0,
             'last_memory_check': None,
             'average_memory_usage': 0.0,
-            'peak_memory_usage': 0.0
+            'peak_memory_usage': 0.0,
+            'total_alerts_sent': 0,
+            'alerts_acknowledged': 0
         }
         
         logger.info("MemoryMonitor initialized with default thresholds")
@@ -175,6 +213,52 @@ class MemoryMonitor:
         with self._lock:
             self._cleanup_callbacks.append(callback)
             logger.debug(f"Added cleanup callback: {getattr(callback, '__name__', str(callback))}")
+    
+    def add_alert_callback(self, callback: Callable[[MemoryAlert], None]):
+        """Add a callback function to be called when memory alerts are triggered."""
+        with self._lock:
+            self._alert_callbacks.append(callback)
+            logger.debug(f"Added alert callback: {getattr(callback, '__name__', str(callback))}")
+    
+    def remove_alert_callback(self, callback: Callable[[MemoryAlert], None]):
+        """Remove an alert callback function."""
+        with self._lock:
+            if callback in self._alert_callbacks:
+                self._alert_callbacks.remove(callback)
+                logger.debug(f"Removed alert callback: {getattr(callback, '__name__', str(callback))}")
+    
+    def get_active_alerts(self) -> List[MemoryAlert]:
+        """Get all currently active memory alerts."""
+        with self._lock:
+            return list(self._active_alerts.values())
+    
+    def acknowledge_alert(self, alert_id: str) -> bool:
+        """Acknowledge a memory alert by ID."""
+        with self._lock:
+            if alert_id in self._active_alerts:
+                self._active_alerts[alert_id].acknowledged = True
+                self._stats['alerts_acknowledged'] += 1
+                logger.info(f"Acknowledged memory alert: {alert_id}")
+                return True
+            return False
+    
+    def clear_acknowledged_alerts(self):
+        """Clear all acknowledged alerts from active alerts."""
+        with self._lock:
+            cleared_count = 0
+            for alert_id in list(self._active_alerts.keys()):
+                if self._active_alerts[alert_id].acknowledged:
+                    del self._active_alerts[alert_id]
+                    cleared_count += 1
+            
+            if cleared_count > 0:
+                logger.info(f"Cleared {cleared_count} acknowledged alerts")
+    
+    def set_alert_cooldown(self, minutes: int):
+        """Set the cooldown period for alerts to prevent spam."""
+        with self._lock:
+            self._alert_cooldown_minutes = minutes
+            logger.info(f"Alert cooldown set to {minutes} minutes")
     
     def start_monitoring(self):
         """Start the background memory monitoring thread."""
@@ -329,7 +413,31 @@ class MemoryMonitor:
     
     def _trigger_alert(self, threshold: MemoryThreshold, memory_stats: MemoryStats):
         """Trigger a memory alert and execute associated actions."""
+        # Check cooldown to prevent spam alerts
+        now = datetime.now()
+        if threshold.level in self._last_alert_times:
+            time_since_last = now - self._last_alert_times[threshold.level]
+            if time_since_last.total_seconds() < (self._alert_cooldown_minutes * 60):
+                return  # Still in cooldown period
+        
+        # Create alert notification
+        alert_id = f"memory_{threshold.level.value}_{int(now.timestamp())}"
+        title = f"Memory Usage Alert - {threshold.level.value.upper()}"
+        message = self._format_alert_message(threshold, memory_stats)
+        
+        alert = MemoryAlert(
+            alert_id=alert_id,
+            level=threshold.level,
+            title=title,
+            message=message,
+            memory_stats=memory_stats,
+            threshold=threshold,
+            timestamp=now
+        )
+        
+        # Legacy alert info for backward compatibility
         alert_info = {
+            'alert_id': alert_id,
             'level': threshold.level.value,
             'memory_percent': memory_stats.memory_percent,
             'swap_percent': memory_stats.swap_percent,
@@ -339,8 +447,21 @@ class MemoryMonitor:
         }
         
         with self._lock:
+            # Add to active alerts (remove any existing alert of the same level)
+            existing_alert_id = None
+            for aid, existing_alert in self._active_alerts.items():
+                if existing_alert.level == threshold.level:
+                    existing_alert_id = aid
+                    break
+            
+            if existing_alert_id:
+                del self._active_alerts[existing_alert_id]
+            
+            self._active_alerts[alert_id] = alert
             self._alert_history.append(alert_info)
             self._stats['alerts_triggered'] += 1
+            self._stats['total_alerts_sent'] += 1
+            self._last_alert_times[threshold.level] = now
         
         process_memory_mb = memory_stats.process_memory / (1024 * 1024)
         logger.warning(
@@ -350,12 +471,39 @@ class MemoryMonitor:
             f"Process: {process_memory_mb:.1f}MB)"
         )
         
+        # Send alert notifications
+        self._send_alert_notifications(alert)
+        
         # Execute threshold callback if available
         if threshold.callback:
             try:
                 threshold.callback(memory_stats, alert_info)
             except Exception as e:
                 logger.error(f"Error executing threshold callback: {e}")
+    
+    def _format_alert_message(self, threshold: MemoryThreshold, memory_stats: MemoryStats) -> str:
+        """Format a human-readable alert message."""
+        process_memory_mb = memory_stats.process_memory / (1024 * 1024)
+        memory_gb = memory_stats.used_memory / (1024**3)
+        available_gb = memory_stats.available_memory / (1024**3)
+        
+        return (
+            f"Memory usage has reached {threshold.level.value} levels.\n"
+            f"Current usage: {memory_stats.memory_percent:.1f}% "
+            f"({memory_gb:.1f}GB used, {available_gb:.1f}GB available)\n"
+            f"Swap usage: {memory_stats.swap_percent:.1f}%\n"
+            f"Process memory: {process_memory_mb:.1f}MB\n"
+            f"Threshold: {threshold.memory_percent}% ({threshold.description})\n"
+            f"Time: {memory_stats.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
+        )
+    
+    def _send_alert_notifications(self, alert: MemoryAlert):
+        """Send alert notifications to registered callbacks."""
+        for callback in self._alert_callbacks:
+            try:
+                callback(alert)
+            except Exception as e:
+                logger.error(f"Error in alert callback: {e}")
     
     def _trigger_light_cleanup(self, memory_stats: MemoryStats, alert_info: Dict[str, Any]):
         """Trigger light cleanup operations."""
@@ -472,7 +620,10 @@ class MemoryMonitor:
                     }
                     for t in self._thresholds
                 ],
-                'recent_alerts': self._alert_history[-5:] if self._alert_history else []
+                'recent_alerts': self._alert_history[-5:] if self._alert_history else [],
+                'active_alerts': [alert.to_dict() for alert in self._active_alerts.values()],
+                'total_active_alerts': len(self._active_alerts),
+                'total_acknowledged_alerts': len([a for a in self._active_alerts.values() if a.acknowledged])
             }
         
         return summary

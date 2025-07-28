@@ -25,6 +25,9 @@ from src.utils.security import setup_cors, validate_webhook_ip
 # Import admin routes
 from src.routes.admin_routes import admin_bp
 
+# Import memory monitoring utilities
+from src.utils.memory_monitor import get_memory_monitor
+
 # Create Flask app
 app = Flask(__name__)
 
@@ -76,6 +79,10 @@ rich_message_service = RichMessageService(
 )
 
 line_service = LineService(settings, openai_service, conversation_service, rich_message_service)
+
+# Initialize memory monitor
+memory_monitor = get_memory_monitor()
+memory_monitor.start_monitoring()
 
 @app.route('/')
 def index():
@@ -146,6 +153,27 @@ def conversations_status():
             for user_id, conv in conversation_service.conversations.items()
         ]
     })
+
+@app.route('/memory')
+@limiter.limit("20 per minute")  # Allow frequent memory status checks
+def memory_status():
+    """Get comprehensive memory usage statistics and alerts"""
+    try:
+        memory_summary = memory_monitor.get_memory_usage_summary()
+        
+        # Add additional context for dashboard
+        memory_summary['service_status'] = 'active' if memory_monitor._is_monitoring else 'inactive'
+        memory_summary['health'] = memory_monitor.get_health_status()
+        
+        return jsonify(memory_summary)
+        
+    except Exception as e:
+        logger.error(f"Error getting memory status: {str(e)}")
+        return jsonify({
+            'error': 'Failed to retrieve memory statistics',
+            'service_status': 'error',
+            'health': {'status': 'error', 'message': str(e)}
+        }), 500
 
 @app.route('/static/backgrounds/<filename>')
 @limiter.limit("100 per minute")  # Allow frequent access to background images
