@@ -5,6 +5,7 @@ import pickle
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from src.utils.redis_manager import get_redis_manager, RedisConnectionManager
+from src.utils.memory_monitor import get_memory_monitor, MemoryStats
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ class ConversationService:
     """
     
     def __init__(self, redis_url: str = None, enable_redis: bool = True, 
-                 conversation_ttl_hours: int = 24):
+                 conversation_ttl_hours: int = 24, enable_memory_monitoring: bool = True):
         """
         Initialize conversation service with Redis fallback capability.
         
@@ -30,6 +31,7 @@ class ConversationService:
             redis_url: Redis connection URL (optional)
             enable_redis: Whether to attempt Redis connection
             conversation_ttl_hours: Hours after which conversations expire
+            enable_memory_monitoring: Whether to enable memory-based cleanup
         """
         # In-memory storage for conversations (fallback + primary for non-Redis mode)
         # Format: {user_id: {"messages": [...], "created_at": datetime, "last_activity": datetime, "last_response_id": str}}
@@ -44,6 +46,7 @@ class ConversationService:
         self.max_total_conversations = 1000  # Global limit for demo
         self.conversation_ttl_hours = conversation_ttl_hours
         self.enable_redis = enable_redis
+        self.enable_memory_monitoring = enable_memory_monitoring
         
         # Redis integration
         self.redis_manager: Optional[RedisConnectionManager] = None
@@ -64,6 +67,11 @@ class ConversationService:
         # Initialize Redis if enabled
         if self.enable_redis:
             self._initialize_redis(redis_url)
+        
+        # Initialize memory monitoring integration
+        self.memory_monitor = None
+        if self.enable_memory_monitoring:
+            self._initialize_memory_monitoring()
     
     def _initialize_redis(self, redis_url: str = None):
         """Initialize Redis connection manager."""
@@ -84,6 +92,20 @@ class ConversationService:
             logger.error(f"Failed to initialize Redis for ConversationService: {e}")
             self._redis_available = False
             self._stats['storage_mode'] = 'in_memory'
+    
+    def _initialize_memory_monitoring(self):
+        """Initialize memory monitoring integration."""
+        try:
+            self.memory_monitor = get_memory_monitor()
+            
+            # Register cleanup callbacks with memory monitor
+            self.memory_monitor.add_cleanup_callback(self._memory_cleanup_callback)
+            
+            logger.info("ConversationService integrated with memory monitoring")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize memory monitoring: {e}")
+            self.memory_monitor = None
     
     def _check_redis_health(self) -> bool:
         """Check Redis health periodically."""
@@ -605,3 +627,184 @@ class ConversationService:
             except Exception as e:
                 logger.error(f"Error during forced Redis reconnection: {str(e)}")
                 return False
+    
+    def _memory_cleanup_callback(self, cleanup_level: str, memory_stats: MemoryStats):
+        """
+        Callback method for memory monitor to trigger conversation cleanup.
+        
+        Args:
+            cleanup_level: Level of cleanup ('light', 'aggressive', 'emergency')
+            memory_stats: Current memory statistics
+        """
+        try:
+            if cleanup_level == "light":
+                self._perform_light_memory_cleanup(memory_stats)
+            elif cleanup_level == "aggressive":
+                self._perform_aggressive_memory_cleanup(memory_stats)
+            elif cleanup_level == "emergency":
+                self._perform_emergency_memory_cleanup(memory_stats)
+            
+            logger.info(f"Completed {cleanup_level} memory cleanup for conversations")
+            
+        except Exception as e:
+            logger.error(f"Error during {cleanup_level} memory cleanup: {e}")
+    
+    def _perform_light_memory_cleanup(self, memory_stats: MemoryStats):
+        """Perform light memory cleanup by removing old and inactive conversations."""
+        with self._lock:
+            try:
+                cleanup_count = 0
+                cutoff_time = datetime.now() - timedelta(hours=self.conversation_ttl_hours // 2)
+                users_to_remove = []
+                
+                # Identify old conversations for removal
+                for user_id, conv in self.conversations.items():
+                    if conv["last_activity"] < cutoff_time and len(conv["messages"]) < 5:
+                        users_to_remove.append(user_id)
+                
+                # Remove identified conversations
+                for user_id in users_to_remove:
+                    del self.conversations[user_id]
+                    if self._redis_available:
+                        self._delete_from_redis(user_id)
+                    cleanup_count += 1
+                
+                logger.info(f"Light cleanup: removed {cleanup_count} old conversations")
+                
+            except Exception as e:
+                logger.error(f"Error during light memory cleanup: {e}")
+    
+    def _perform_aggressive_memory_cleanup(self, memory_stats: MemoryStats):
+        """Perform aggressive memory cleanup by removing conversations and trimming messages."""
+        with self._lock:
+            try:
+                cleanup_count = 0
+                
+                # First, perform light cleanup
+                self._perform_light_memory_cleanup(memory_stats)
+                
+                # Trim messages in remaining conversations
+                cutoff_time = datetime.now() - timedelta(hours=self.conversation_ttl_hours // 4)
+                
+                for user_id, conv in self.conversations.items():
+                    original_count = len(conv["messages"])
+                    
+                    # More aggressive message trimming
+                    if original_count > 20:
+                        conv["messages"] = conv["messages"][-20:]  # Keep only last 20
+                        
+                        # Update in Redis if available
+                        if self._redis_available:
+                            self._save_to_redis(user_id, conv)
+                        
+                        cleanup_count += original_count - len(conv["messages"])
+                
+                # Remove conversations with no recent activity
+                users_to_remove = []
+                for user_id, conv in self.conversations.items():
+                    if conv["last_activity"] < cutoff_time:
+                        users_to_remove.append(user_id)
+                
+                for user_id in users_to_remove:
+                    del self.conversations[user_id]
+                    if self._redis_available:
+                        self._delete_from_redis(user_id)
+                    cleanup_count += 1
+                
+                logger.warning(f"Aggressive cleanup: trimmed {cleanup_count} messages/conversations")
+                
+            except Exception as e:
+                logger.error(f"Error during aggressive memory cleanup: {e}")
+    
+    def _perform_emergency_memory_cleanup(self, memory_stats: MemoryStats):
+        """Perform emergency memory cleanup by drastically reducing conversation data."""
+        with self._lock:
+            try:
+                # First, perform aggressive cleanup
+                self._perform_aggressive_memory_cleanup(memory_stats)
+                
+                # Emergency measures: keep only the most recent and active conversations
+                if len(self.conversations) > 50:
+                    # Sort conversations by last activity and message count
+                    conversations_by_priority = [
+                        (user_id, conv, conv["last_activity"], len(conv["messages"]))
+                        for user_id, conv in self.conversations.items()
+                    ]
+                    
+                    # Sort by activity (recent first), then by message count (more messages first)
+                    conversations_by_priority.sort(key=lambda x: (x[2], x[3]), reverse=True)
+                    
+                    # Keep only top 50 conversations
+                    conversations_to_keep = conversations_by_priority[:50]
+                    conversations_to_remove = conversations_by_priority[50:]
+                    
+                    # Remove excess conversations
+                    for user_id, conv, _, _ in conversations_to_remove:
+                        if user_id in self.conversations:
+                            del self.conversations[user_id]
+                            if self._redis_available:
+                                self._delete_from_redis(user_id)
+                    
+                    logger.critical(f"Emergency cleanup: removed {len(conversations_to_remove)} conversations, kept {len(conversations_to_keep)}")
+                
+                # Trim all remaining conversations to minimal messages
+                for user_id, conv in self.conversations.items():
+                    if len(conv["messages"]) > 5:
+                        conv["messages"] = conv["messages"][-5:]  # Keep only last 5 messages
+                        
+                        # Update in Redis if available
+                        if self._redis_available:
+                            self._save_to_redis(user_id, conv)
+                
+                logger.critical("Emergency memory cleanup completed")
+                
+            except Exception as e:
+                logger.critical(f"CRITICAL ERROR during emergency memory cleanup: {e}")
+    
+    def get_memory_usage_info(self) -> Dict[str, Any]:
+        """Get detailed memory usage information for conversations."""
+        with self._lock:
+            try:
+                # Calculate memory usage estimates
+                total_conversations = len(self.conversations)
+                total_messages = sum(len(conv["messages"]) for conv in self.conversations.values())
+                
+                # Estimate memory usage (rough calculation)
+                avg_message_size = 200  # bytes (rough estimate)
+                estimated_conversation_memory = total_messages * avg_message_size
+                
+                # Get active conversations (recent activity)
+                recent_cutoff = datetime.now() - timedelta(hours=1)
+                active_conversations = sum(
+                    1 for conv in self.conversations.values()
+                    if conv["last_activity"] > recent_cutoff
+                )
+                
+                memory_info = {
+                    'total_conversations': total_conversations,
+                    'total_messages': total_messages,
+                    'active_conversations': active_conversations,
+                    'estimated_memory_bytes': estimated_conversation_memory,
+                    'estimated_memory_mb': estimated_conversation_memory / (1024 * 1024),
+                    'average_messages_per_conversation': total_messages / max(total_conversations, 1),
+                    'memory_monitoring_enabled': self.enable_memory_monitoring,
+                    'cleanup_stats': {
+                        'max_messages_per_user': self.max_messages_per_user,
+                        'max_total_conversations': self.max_total_conversations,
+                        'conversation_ttl_hours': self.conversation_ttl_hours
+                    }
+                }
+                
+                # Add memory monitor stats if available
+                if self.memory_monitor:
+                    memory_info['memory_monitor_stats'] = self.memory_monitor.get_memory_usage_summary()
+                
+                return memory_info
+                
+            except Exception as e:
+                logger.error(f"Error getting memory usage info: {e}")
+                return {
+                    'error': str(e),
+                    'total_conversations': 0,
+                    'total_messages': 0
+                }

@@ -24,6 +24,7 @@ dependencies = [
     "aiofiles>=24.1.0",
     "asyncio>=3.4.3",
     "celery>=5.5.3",
+    "psutil>=6.1.1",
 ]
 
 [project.optional-dependencies]

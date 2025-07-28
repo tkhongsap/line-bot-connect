@@ -20,7 +20,8 @@
       "Bash(mkdir:*)",
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(find:*)",
-      "Bash(pytest:*)"
+      "Bash(pytest:*)",
+      "WebFetch(domain:claude.ai)"
     ],
     "deny": []
   }
