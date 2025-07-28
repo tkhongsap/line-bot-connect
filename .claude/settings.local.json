@@ -17,7 +17,8 @@
       "Bash(mv:*)",
       "Bash(python:*)",
       "Bash(chmod:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "WebFetch(domain:docs.anthropic.com)"
     ],
     "deny": []
   }
