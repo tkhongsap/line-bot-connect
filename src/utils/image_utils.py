@@ -6,11 +6,13 @@ import requests
 import signal
 import threading
 import glob
+import time
 from typing import Dict, Optional, Tuple, List
 from datetime import datetime, timedelta
 from PIL import Image
 import io
 from src.utils.memory_monitor import get_memory_monitor, MemoryStats
+from src.utils.connection_pool import connection_pool_manager, ExponentialBackoff
 
 # Global temp file tracking for memory-aware cleanup
 _global_temp_files = []
@@ -228,6 +230,40 @@ class ImageProcessor:
         
         # Register global memory cleanup on first initialization
         _register_memory_cleanup()
+        
+        # Set up connection pooling for image downloads
+        self._setup_image_connection_pools()
+        
+        # Download metrics
+        self.download_metrics = {
+            'total_downloads': 0,
+            'successful_downloads': 0,
+            'failed_downloads': 0,
+            'avg_download_time': 0.0,
+            'total_bytes_downloaded': 0
+        }
+    
+    def _setup_image_connection_pools(self):
+        """Set up connection pools optimized for image downloads."""
+        # Create session for LINE content API (image downloads) if not already created
+        try:
+            # Check if session already exists
+            if 'line_content_api' not in connection_pool_manager.pools:
+                self.image_session = connection_pool_manager.create_session_with_pooling(
+                    name="line_content_api",
+                    base_url="https://api-data.line.me",
+                    pool_maxsize=8,  # Smaller pool for image downloads
+                    max_retries=2,
+                    enable_keep_alive=True
+                )
+                logger.info("Created connection pool for image downloads")
+            else:
+                # Use existing session
+                self.image_session = connection_pool_manager.pools['line_content_api']['session']
+                logger.debug("Using existing connection pool for image downloads")
+        except Exception as e:
+            logger.warning(f"Failed to set up image connection pool: {e}")
+            self.image_session = None
     
     def __enter__(self):
         """Context manager entry point"""
@@ -254,7 +290,7 @@ class ImageProcessor:
     
     def download_image_from_line(self, line_bot_api, message_id: str, timeout_seconds: int = 10) -> Optional[Dict]:
         """
-        Download image from LINE Bot API using message ID with timeout
+        Download image from LINE Bot API using message ID with connection pooling and timeout
         
         Args:
             line_bot_api: LINE Bot API instance
@@ -264,42 +300,84 @@ class ImageProcessor:
         Returns:
             Dict with success status and image data/error info
         """
+        start_time = time.time()
+        
         try:
-            logger.info(f"Downloading image with message_id: {message_id} (timeout: {timeout_seconds}s)")
+            logger.info(f"Downloading image with message_id: {message_id} (timeout: {timeout_seconds}s, pooled: {self.image_session is not None})")
             
-            # Set up timeout
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(timeout_seconds)
+            # Update download metrics
+            self.download_metrics['total_downloads'] += 1
             
-            try:
-                # Get image content from LINE API
-                image_content = line_bot_api.get_message_content(message_id)
+            # Define download operation for connection pooling
+            def download_operation():
+                # Set up timeout
+                signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(timeout_seconds)
                 
-                # Read image data
-                image_data = b''
-                for chunk in image_content.iter_content():
-                    image_data += chunk
-                
-            finally:
-                # Cancel timeout
-                signal.alarm(0)
+                try:
+                    # Get image content from LINE API
+                    image_content = line_bot_api.get_message_content(message_id)
+                    
+                    # Read image data with streaming for better memory management
+                    image_data = b''
+                    chunk_size = 8192  # 8KB chunks for better memory usage
+                    
+                    for chunk in image_content.iter_content(chunk_size=chunk_size):
+                        if chunk:  # Filter out keep-alive chunks
+                            image_data += chunk
+                            
+                            # Check size limit during download to avoid memory issues
+                            if len(image_data) > self.MAX_FILE_SIZE:
+                                raise ValueError(f"Image too large: {len(image_data)} bytes > {self.MAX_FILE_SIZE}")
+                    
+                    return image_data
+                    
+                finally:
+                    # Cancel timeout
+                    signal.alarm(0)
             
-            # Validate file size
-            if len(image_data) > self.MAX_FILE_SIZE:
-                logger.warning(f"Image too large: {len(image_data)} bytes > {self.MAX_FILE_SIZE}")
-                return {
-                    'success': False,
-                    'error': 'Image file too large (max 10MB)',
-                    'error_code': 'FILE_TOO_LARGE'
-                }
+            # Execute download with connection pooling and retry logic
+            if self.image_session:
+                backoff = ExponentialBackoff(base_delay=0.5, max_delay=5.0, multiplier=1.5)
+                image_data = connection_pool_manager.execute_with_retry(
+                    "line_content_api",
+                    download_operation,
+                    max_attempts=2,
+                    backoff=backoff
+                )
+            else:
+                # Fallback to direct download without pooling
+                logger.warning("No connection pool available, using direct download")
+                image_data = download_operation()
             
             # Validate and get image info
             validation_result = self._validate_image(image_data)
             if not validation_result['success']:
+                self.download_metrics['failed_downloads'] += 1
                 return validation_result
             
             # Create temporary file
             temp_file_path = self._create_temp_file(image_data, validation_result['format'])
+            
+            # Update success metrics
+            download_time = time.time() - start_time
+            self.download_metrics['successful_downloads'] += 1
+            self.download_metrics['total_bytes_downloaded'] += len(image_data)
+            self.download_metrics['avg_download_time'] = (
+                (self.download_metrics['avg_download_time'] * (self.download_metrics['successful_downloads'] - 1) + download_time) /
+                self.download_metrics['successful_downloads']
+            )
+            
+            logger.info(
+                f"Image downloaded successfully with connection pooling",
+                extra={
+                    'message_id': message_id,
+                    'size_bytes': len(image_data),
+                    'format': validation_result['format'],
+                    'download_time': download_time,
+                    'pooled': self.image_session is not None
+                }
+            )
             
             return {
                 'success': True,
@@ -307,23 +385,53 @@ class ImageProcessor:
                 'temp_file_path': temp_file_path,
                 'format': validation_result['format'],
                 'size': len(image_data),
-                'dimensions': validation_result['dimensions']
+                'dimensions': validation_result['dimensions'],
+                'download_time': download_time,
+                'pooled': self.image_session is not None
             }
             
         except TimeoutError:
-            logger.error(f"Timeout downloading image {message_id}")
+            self.download_metrics['failed_downloads'] += 1
+            logger.error(f"Timeout downloading image {message_id} with connection pooling")
             return {
                 'success': False,
                 'error': f'Image download timed out after {timeout_seconds} seconds',
-                'error_code': 'DOWNLOAD_TIMEOUT'
+                'error_code': 'DOWNLOAD_TIMEOUT',
+                'download_time': time.time() - start_time
+            }
+        except ValueError as e:
+            # Handle size limit errors specifically
+            self.download_metrics['failed_downloads'] += 1
+            logger.warning(f"Image size validation failed for {message_id}: {str(e)}")
+            return {
+                'success': False,
+                'error': 'Image file too large (max 10MB)',
+                'error_code': 'FILE_TOO_LARGE',
+                'download_time': time.time() - start_time
             }
         except Exception as e:
-            logger.error(f"Error downloading image {message_id}: {str(e)}")
+            self.download_metrics['failed_downloads'] += 1
+            logger.error(f"Error downloading image {message_id} with connection pooling: {str(e)}")
             return {
                 'success': False,
                 'error': f'Failed to download image: {str(e)}',
-                'error_code': 'DOWNLOAD_FAILED'
+                'error_code': 'DOWNLOAD_FAILED',
+                'download_time': time.time() - start_time
             }
+    
+    def get_download_metrics(self) -> Dict:
+        """Get image download metrics."""
+        pool_metrics = connection_pool_manager.get_metrics()
+        
+        # Filter for image-related pools
+        image_pools = {k: v for k, v in pool_metrics.get('pools', {}).items() if 'content' in k}
+        
+        return {
+            'download_metrics': self.download_metrics,
+            'connection_pools': image_pools,
+            'pool_health': {k: v for k, v in pool_metrics.get('health', {}).items() if 'content' in k},
+            'temp_file_stats': get_temp_file_stats()
+        }
     
     def _validate_image(self, image_data: bytes) -> Dict:
         """Validate image format and dimensions"""

@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import base64
 import logging
+import time
 import requests.adapters
 from urllib3.util.retry import Retry
 from linebot import LineBotApi, WebhookHandler
@@ -11,7 +12,7 @@ from linebot.models import (
     MessageEvent, TextMessage, ImageMessage, TextSendMessage,
     PostbackEvent, FlexSendMessage
 )
-from src.utils.connection_pool import OptimizedLineBotApi
+from src.utils.connection_pool import OptimizedLineBotApi, connection_pool_manager
 from src.exceptions import (
     LineAPIException, ValidationException, AuthenticationException,
     NetworkException, TimeoutException, DataProcessingException,
@@ -31,9 +32,21 @@ class LineService:
         self.conversation_service = conversation_service
         self.rich_message_service = rich_message_service
         
-        # Initialize LINE Bot API with connection pooling
+        # Initialize connection pools for LINE API
+        self._setup_line_connection_pools()
+        
+        # Initialize LINE Bot API with enhanced connection pooling
         self.line_bot_api = self._create_optimized_line_bot_api(settings.LINE_CHANNEL_ACCESS_TOKEN)
         self.handler = WebhookHandler(settings.LINE_CHANNEL_SECRET)
+        
+        # Initialize connection metrics
+        self.connection_metrics = {
+            'webhook_requests': 0,
+            'api_calls': 0,
+            'successful_calls': 0,
+            'failed_calls': 0,
+            'avg_response_time': 0.0
+        }
         
         # Register message handlers
         @self.handler.add(MessageEvent, message=TextMessage)
@@ -50,24 +63,67 @@ class LineService:
         def handle_postback(event):
             self._handle_postback_event(event)
     
+    def _setup_line_connection_pools(self):
+        """Set up connection pools for LINE API operations."""
+        # Create dedicated session for LINE Bot API
+        self.line_api_session = connection_pool_manager.create_session_with_pooling(
+            name="line_bot_api",
+            base_url="https://api.line.me",
+            pool_maxsize=15,  # Medium pool size for LINE API
+            max_retries=3,
+            enable_keep_alive=True
+        )
+        
+        # Create session for LINE content API (image downloads)
+        self.line_content_session = connection_pool_manager.create_session_with_pooling(
+            name="line_content_api",
+            base_url="https://api-data.line.me",
+            pool_maxsize=10,  # Smaller pool for content downloads
+            max_retries=2,
+            enable_keep_alive=True
+        )
+        
+        logger.info("Set up connection pools for LINE API service")
+    
     def _create_optimized_line_bot_api(self, channel_access_token: str) -> OptimizedLineBotApi:
-        """Create optimized LINE Bot API client with connection pooling."""
-        return OptimizedLineBotApi(
+        """Create optimized LINE Bot API client with enhanced connection pooling."""
+        # Use connection pool manager to create LINE Bot API
+        line_bot_api = connection_pool_manager.create_line_bot_api(
             channel_access_token=channel_access_token,
             timeout=10,
-            pool_maxsize=20,
+            pool_maxsize=15,
             max_retries=3
         )
+        
+        logger.info("Created optimized LINE Bot API client with connection pooling")
+        return line_bot_api
+    
+    def get_connection_metrics(self) -> dict:
+        """Get LINE service connection metrics."""
+        pool_metrics = connection_pool_manager.get_metrics()
+        
+        # Filter for LINE-related pools
+        line_pools = {k: v for k, v in pool_metrics.get('pools', {}).items() if 'line' in k}
+        
+        return {
+            'service_metrics': self.connection_metrics,
+            'line_connection_pools': line_pools,
+            'total_line_pools': len(line_pools),
+            'pool_health': {k: v for k, v in pool_metrics.get('health', {}).items() if 'line' in k}
+        }
     
     @error_handler(reraise=False, default_return={'success': False, 'error': 'Webhook processing failed'})
     def handle_webhook(self, signature, body):
-        """Handle incoming webhook from LINE with comprehensive error handling."""
+        """Handle incoming webhook from LINE with comprehensive error handling and connection pooling."""
         correlation_id = create_correlation_id()
+        start_time = time.time()
         
         with logger.context(correlation_id=correlation_id, operation='webhook_processing'):
-            logger.info("Processing LINE webhook request")
+            logger.info("Processing LINE webhook request with connection pooling")
             
             try:
+                # Track webhook request
+                self.connection_metrics['webhook_requests'] += 1
                 # Validate input parameters
                 if not signature:
                     raise ValidationException(
@@ -94,13 +150,38 @@ class LineService:
                         context={'signature_provided': bool(signature)}
                     )
                 
-                # Handle the webhook event with timeout protection
+                # Handle the webhook event with timeout protection and connection pooling
                 try:
-                    self.handler.handle(body, signature)
-                    logger.info("Webhook processed successfully", correlation_id=correlation_id)
-                    return {'success': True, 'correlation_id': correlation_id}
+                    # Use connection pool manager for webhook handling
+                    def process_webhook():
+                        self.handler.handle(body, signature)
+                        return {'success': True, 'correlation_id': correlation_id}
+                    
+                    result = connection_pool_manager.execute_with_retry(
+                        "line_bot_api",
+                        process_webhook,
+                        max_attempts=2
+                    )
+                    
+                    # Update success metrics
+                    response_time = time.time() - start_time
+                    self.connection_metrics['successful_calls'] += 1
+                    self.connection_metrics['avg_response_time'] = (
+                        (self.connection_metrics['avg_response_time'] * (self.connection_metrics['successful_calls'] - 1) + response_time) /
+                        self.connection_metrics['successful_calls']
+                    )
+                    
+                    logger.info(
+                        "Webhook processed successfully with connection pooling", 
+                        correlation_id=correlation_id,
+                        extra_context={'response_time': response_time}
+                    )
+                    return result
                     
                 except Exception as handler_error:
+                    # Update failure metrics
+                    self.connection_metrics['failed_calls'] += 1
+                    
                     # Wrap handler errors as processing exceptions
                     raise DataProcessingException(
                         message=f"Webhook event processing failed: {str(handler_error)}",
@@ -111,6 +192,9 @@ class LineService:
                     )
             
             except InvalidSignatureError as e:
+                # Update failure metrics
+                self.connection_metrics['failed_calls'] += 1
+                
                 raise AuthenticationException(
                     message="LINE Bot SDK signature validation failed",
                     service="LINE_WEBHOOK",
@@ -119,6 +203,8 @@ class LineService:
                 )
             
             except BaseBotException:
+                # Update failure metrics for custom exceptions
+                self.connection_metrics['failed_calls'] += 1
                 # Re-raise our custom exceptions
                 raise
             

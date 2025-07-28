@@ -1,11 +1,13 @@
 import logging
 import time
 import hashlib
+import httpx
 from typing import Optional, Dict, Any
 from openai import AzureOpenAI
 from openai.types.chat import ChatCompletion
 from ..utils.prompt_manager import PromptManager
 from ..utils.cache_manager import get_cache_manager
+from ..utils.connection_pool import connection_pool_manager, ExponentialBackoff
 from ..exceptions import (
     OpenAIAPIException, NetworkException, TimeoutException,
     RateLimitException, ValidationException, BaseBotException,
@@ -33,22 +35,27 @@ class OpenAIService:
         # Try next generation v1 API first, fall back to standard if needed
         self.base_url = f"{settings.AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai/v1/"
         
+        # Initialize connection pool for Azure OpenAI
+        self._setup_connection_pools()
+        
         try:
-            self.client = AzureOpenAI(
+            # Create clients with connection pooling
+            self.client = self._create_pooled_client(
                 api_key=settings.AZURE_OPENAI_API_KEY,
                 api_version="preview",  # For Responses API support
                 base_url=self.base_url,
-                azure_endpoint=None,
-                timeout=30.0  # Add timeout for better error handling
+                client_name="openai_primary"
             )
             
             # Fallback client for Chat Completions if Responses API not available
-            self.fallback_client = AzureOpenAI(
+            self.fallback_client = self._create_pooled_client(
                 api_key=settings.AZURE_OPENAI_API_KEY,
                 api_version=settings.AZURE_OPENAI_API_VERSION,
                 azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
-                timeout=30.0
+                client_name="openai_fallback"
             )
+            
+            logger.info("Initialized Azure OpenAI service with connection pooling")
             
         except Exception as e:
             raise OpenAIAPIException(
@@ -71,6 +78,108 @@ class OpenAIService:
         # Caching configuration
         self.enable_caching = True
         self.cache_ttl = 3600  # 1 hour default cache TTL
+        
+        # Connection pool monitoring
+        self.connection_metrics = {
+            'total_requests': 0,
+            'successful_requests': 0,
+            'failed_requests': 0,
+            'avg_response_time': 0.0,
+            'connection_reuse_count': 0
+        }
+    
+    def _setup_connection_pools(self):
+        """Set up connection pools for Azure OpenAI API calls."""
+        # Create dedicated session for Azure OpenAI primary endpoint
+        self.primary_session = connection_pool_manager.create_session_with_pooling(
+            name="azure_openai_primary",
+            base_url=self.base_url,
+            pool_maxsize=20,  # Increased pool size for OpenAI API
+            max_retries=3,
+            enable_keep_alive=True
+        )
+        
+        # Create dedicated session for Azure OpenAI fallback endpoint
+        fallback_url = f"{self.settings.AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai/deployments/{self.settings.AZURE_OPENAI_DEPLOYMENT_NAME}/"
+        self.fallback_session = connection_pool_manager.create_session_with_pooling(
+            name="azure_openai_fallback", 
+            base_url=fallback_url,
+            pool_maxsize=10,  # Smaller pool for fallback
+            max_retries=2,
+            enable_keep_alive=True
+        )
+        
+        # Start connection pool monitoring
+        connection_pool_manager.start_monitoring()
+        
+        logger.info("Set up connection pools for Azure OpenAI service")
+    
+    def _create_pooled_client(self, api_key: str, api_version: str, 
+                            client_name: str, base_url: str = None, 
+                            azure_endpoint: str = None) -> AzureOpenAI:
+        """Create Azure OpenAI client with connection pooling."""
+        # Configure httpx client for OpenAI with connection pooling
+        http_client = httpx.Client(
+            limits=httpx.Limits(
+                max_keepalive_connections=20,
+                max_connections=50,
+                keepalive_expiry=30.0
+            ),
+            timeout=httpx.Timeout(
+                connect=10.0,
+                read=30.0,
+                write=10.0,
+                pool=5.0
+            ),
+            http2=True,  # Enable HTTP/2 for better performance
+            follow_redirects=True
+        )
+        
+        # Create Azure OpenAI client with custom HTTP client
+        client_config = {
+            'api_key': api_key,
+            'api_version': api_version,
+            'http_client': http_client,
+            'timeout': 30.0
+        }
+        
+        if base_url:
+            client_config['base_url'] = base_url
+            client_config['azure_endpoint'] = None
+        else:
+            client_config['azure_endpoint'] = azure_endpoint
+        
+        client = AzureOpenAI(**client_config)
+        
+        # Register client for health monitoring
+        connection_pool_manager.health_monitor.register_connection(
+            client_name,
+            lambda: self._health_check_openai_client(client),
+            failure_threshold=3
+        )
+        
+        logger.info(f"Created pooled Azure OpenAI client: {client_name}")
+        return client
+    
+    def _health_check_openai_client(self, client: AzureOpenAI) -> bool:
+        """Perform health check for Azure OpenAI client."""
+        try:
+            # Perform a lightweight API call to check connectivity
+            # This is a placeholder - actual implementation would depend on available endpoints
+            return client is not None and hasattr(client, 'chat')
+        except Exception as e:
+            logger.warning(f"Azure OpenAI client health check failed: {e}")
+            return False
+    
+    def get_connection_metrics(self) -> Dict[str, Any]:
+        """Get connection pool and service metrics."""
+        pool_metrics = connection_pool_manager.get_metrics()
+        
+        return {
+            'service_metrics': self.connection_metrics,
+            'connection_pool_metrics': pool_metrics,
+            'total_pools': len([p for p in pool_metrics.get('pools', {}) if 'azure_openai' in p])
+        }
 
     def update_system_prompt(self, prompt_type: str = "default"):
         """Update the system prompt to a different variation"""
@@ -140,6 +249,10 @@ class OpenAIService:
             logger.info("Processing OpenAI request")
             
             try:
+                # Update connection pool usage tracking
+                start_time = time.time()
+                self.connection_metrics['total_requests'] += 1
+                
                 # Validate inputs
                 if not user_id:
                     raise ValidationException(
@@ -166,17 +279,31 @@ class OpenAIService:
                         logger.info("Returning cached OpenAI response", correlation_id=correlation_id)
                         return cached_response
                 
-                # Use circuit breaker pattern to determine which API to try first
-                if self._should_use_responses_api():
-                    response = self._get_response_with_responses_api(
-                        user_id, user_message, use_streaming, image_data, 
-                        file_data, file_name, correlation_id
-                    )
-                else:
-                    response = self._get_response_with_chat_completions(
-                        user_id, user_message, use_streaming, image_data, 
-                        file_data, file_name, correlation_id
-                    )
+                # Use connection pool with retry logic and circuit breaker pattern
+                response = None
+                client_name = "azure_openai_primary" if self._should_use_responses_api() else "azure_openai_fallback"
+                
+                # Execute with connection pooling and retry logic
+                def execute_openai_request():
+                    if self._should_use_responses_api():
+                        return self._get_response_with_responses_api(
+                            user_id, user_message, use_streaming, image_data, 
+                            file_data, file_name, correlation_id
+                        )
+                    else:
+                        return self._get_response_with_chat_completions(
+                            user_id, user_message, use_streaming, image_data, 
+                            file_data, file_name, correlation_id
+                        )
+                
+                # Use connection pool manager with retry logic
+                backoff = ExponentialBackoff(base_delay=1.0, max_delay=30.0, multiplier=2.0)
+                response = connection_pool_manager.execute_with_retry(
+                    client_name, 
+                    execute_openai_request, 
+                    max_attempts=3, 
+                    backoff=backoff
+                )
                 
                 # Cache successful non-streaming responses
                 if (response.get('success') and not use_streaming and 
@@ -188,12 +315,22 @@ class OpenAIService:
                         correlation_id=correlation_id
                     )
                 
+                # Update connection metrics
+                response_time = time.time() - start_time
+                self.connection_metrics['successful_requests'] += 1
+                self.connection_metrics['avg_response_time'] = (
+                    (self.connection_metrics['avg_response_time'] * (self.connection_metrics['successful_requests'] - 1) + response_time) /
+                    self.connection_metrics['successful_requests']
+                )
+                
                 logger.info(
-                    f"OpenAI request completed successfully",
+                    f"OpenAI request completed successfully with connection pooling",
                     correlation_id=correlation_id,
                     extra_context={
                         'response_length': len(response.get('message', '')) if response.get('message') else 0,
-                        'tokens_used': response.get('tokens_used', 0)
+                        'tokens_used': response.get('tokens_used', 0),
+                        'response_time': response_time,
+                        'client_name': client_name
                     }
                 )
                 
@@ -201,9 +338,17 @@ class OpenAIService:
                 
             except ValidationException:
                 # Re-raise validation errors
+                self.connection_metrics['failed_requests'] += 1
                 raise
                 
             except Exception as e:
+                # Update failure metrics
+                self.connection_metrics['failed_requests'] += 1
+                logger.error(
+                    f"OpenAI request failed with connection pooling",
+                    correlation_id=correlation_id,
+                    extra_context={'error': str(e)}
+                )
                 # Wrap OpenAI API errors
                 if hasattr(e, 'status_code'):
                     if e.status_code == 429:
