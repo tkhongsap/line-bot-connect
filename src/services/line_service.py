@@ -3,12 +3,15 @@ import hashlib
 import hmac
 import base64
 import logging
+import requests.adapters
+from urllib3.util.retry import Retry
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError, LineBotApiError
 from linebot.models import (
     MessageEvent, TextMessage, ImageMessage, TextSendMessage,
     PostbackEvent, FlexSendMessage
 )
+from src.utils.connection_pool import OptimizedLineBotApi
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +24,8 @@ class LineService:
         self.conversation_service = conversation_service
         self.rich_message_service = rich_message_service
         
-        # Initialize LINE Bot API
-        self.line_bot_api = LineBotApi(settings.LINE_CHANNEL_ACCESS_TOKEN)
+        # Initialize LINE Bot API with connection pooling
+        self.line_bot_api = self._create_optimized_line_bot_api(settings.LINE_CHANNEL_ACCESS_TOKEN)
         self.handler = WebhookHandler(settings.LINE_CHANNEL_SECRET)
         
         # Register message handlers
@@ -39,6 +42,15 @@ class LineService:
         @self.handler.add(PostbackEvent)
         def handle_postback(event):
             self._handle_postback_event(event)
+    
+    def _create_optimized_line_bot_api(self, channel_access_token: str) -> OptimizedLineBotApi:
+        """Create optimized LINE Bot API client with connection pooling."""
+        return OptimizedLineBotApi(
+            channel_access_token=channel_access_token,
+            timeout=10,
+            pool_maxsize=20,
+            max_retries=3
+        )
     
     def handle_webhook(self, signature, body):
         """Handle incoming webhook from LINE"""
