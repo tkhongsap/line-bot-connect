@@ -7,40 +7,40 @@ This task list implements comprehensive file type support for the LINE Bot, enab
 
 ## Task Breakdown
 
-### T1: LINE SDK FileMessage Handler Integration [ ]
-- [ ] T1.1: Import FileMessage from linebot.models in line_service.py
-- [ ] T1.2: Register FileMessage handler in LineService.__init__ using @self.handler.add decorator
-- [ ] T1.3: Connect FileMessage handler to existing _handle_file_message method
-- [ ] T1.4: Verify webhook registration accepts FileMessage events
-- [ ] T1.5: Test FileMessage handler activation with simple file upload
+### T1: LINE SDK FileMessage Handler Integration [x]
+- [x] T1.1: Import FileMessage from linebot.models in line_service.py
+- [x] T1.2: Register FileMessage handler in LineService.__init__ using @self.handler.add decorator
+- [x] T1.3: Connect FileMessage handler to existing _handle_file_message method
+- [x] T1.4: Verify webhook registration accepts FileMessage events
+- [x] T1.5: Test FileMessage handler activation with simple file upload
 
-### T2: File Processing Pipeline Enhancement [ ]
-- [ ] T2.1: Review and validate existing FileProcessor class in src/utils/file_utils.py
-- [ ] T2.2: Ensure _handle_file_message method properly calls FileProcessor.download_file_from_line
-- [ ] T2.3: Validate 20MB file size limit enforcement in FileProcessor
-- [ ] T2.4: Add file type detection and validation logic
-- [ ] T2.5: Implement comprehensive error handling for file download failures
+### T2: File Processing Pipeline Enhancement [x]
+- [x] T2.1: Review and validate existing FileProcessor class in src/utils/file_utils.py
+- [x] T2.2: Ensure _handle_file_message method properly calls FileProcessor.download_file_from_line
+- [x] T2.3: Validate 20MB file size limit enforcement in FileProcessor
+- [x] T2.4: Add file type detection and validation logic
+- [x] T2.5: Implement comprehensive error handling for file download failures
 
-### T3: OpenAI File API Integration [ ]
-- [ ] T3.1: Review existing _upload_file method in OpenAIService
-- [ ] T3.2: Ensure file upload functionality works with OpenAI's file API
-- [ ] T3.3: Validate file processing through GPT-4.1-nano model
-- [ ] T3.4: Test file analysis response generation
-- [ ] T3.5: Implement proper file cleanup after processing
+### T3: OpenAI File API Integration [x]
+- [x] T3.1: Review existing _upload_file method in OpenAIService
+- [x] T3.2: Ensure file upload functionality works with OpenAI's file API
+- [x] T3.3: Validate file processing through GPT-4.1-nano model
+- [x] T3.4: Test file analysis response generation
+- [x] T3.5: Implement proper file cleanup after processing
 
-### T4: Error Handling and User Experience [ ]
-- [ ] T4.1: Implement bilingual error messages for unsupported file types
-- [ ] T4.2: Add specific error handling for file size limit exceeded (20MB)
-- [ ] T4.3: Create user-friendly messages for file download failures
-- [ ] T4.4: Implement error responses for OpenAI API processing failures
-- [ ] T4.5: Add file processing status indication for users
+### T4: Error Handling and User Experience [x]
+- [x] T4.1: Implement bilingual error messages for unsupported file types
+- [x] T4.2: Add specific error handling for file size limit exceeded (20MB)
+- [x] T4.3: Create user-friendly messages for file download failures
+- [x] T4.4: Implement error responses for OpenAI API processing failures
+- [x] T4.5: Add file processing status indication for users
 
-### T5: Conversation Context and Logging [ ]
-- [ ] T5.1: Ensure file messages are properly added to conversation history
-- [ ] T5.2: Add metadata tracking for file uploads (name, size, type)
-- [ ] T5.3: Implement comprehensive logging for file processing activities
-- [ ] T5.4: Validate conversation context maintenance after file processing
-- [ ] T5.5: Test file message integration with existing conversation flow
+### T5: Conversation Context and Logging [x]
+- [x] T5.1: Ensure file messages are properly added to conversation history
+- [x] T5.2: Add metadata tracking for file uploads (name, size, type)
+- [x] T5.3: Implement comprehensive logging for file processing activities
+- [x] T5.4: Validate conversation context maintenance after file processing
+- [x] T5.5: Test file message integration with existing conversation flow
 
 ### T6: Testing and Quality Assurance [ ]
 - [ ] T6.1: Create unit tests for FileMessage handler registration

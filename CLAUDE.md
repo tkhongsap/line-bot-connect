@@ -76,11 +76,12 @@ cat uv.lock
 This is a Flask-based LINE Bot application with two major capabilities: conversational AI and automated Rich Message delivery. The architecture follows a service-oriented pattern with clear separation of concerns and background task processing.
 
 ### Core Services Layer
-- **LineService** (`src/services/line_service.py`): Handles LINE Bot SDK integration, webhook verification, message processing, and supports both text and image messages
+- **LineService** (`src/services/line_service.py`): Handles LINE Bot SDK integration, webhook verification, message processing, and supports text, image, and file messages with comprehensive file type support
 - **OpenAIService** (`src/services/openai_service.py`): Manages Azure OpenAI API communication with GPT-4.1-nano model, conversation context, web search capabilities, and multimodal (text + vision) processing
 - **ConversationService** (`src/services/conversation_service.py`): Maintains conversation history per user with automatic trimming (supports up to 100 messages per user). Factory pattern supports both in-memory and Redis backends
 - **RichMessageService** (`src/services/rich_message_service.py`): Handles creation, management, and delivery of Rich Messages with automated content generation and template-based graphics
 - **ImageProcessor** (`src/utils/image_utils.py`): Handles image download from LINE content API, format validation, base64 conversion for GPT-4 vision API, and automatic cleanup
+- **FileProcessor** (`src/utils/file_utils.py`): Handles general file download, type detection, validation, and processing with support for 20+ file formats including documents, spreadsheets, code files, and data formats
 
 ### Rich Message Automation System
 - **ContentGenerator** (`src/utils/content_generator.py`): AI-powered content generation for daily motivational messages using Azure OpenAI
