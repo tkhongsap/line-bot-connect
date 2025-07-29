@@ -104,7 +104,8 @@ class CircuitBreaker:
         """Execute function with circuit breaker protection."""
         with self._lock:
             if self.state == ConnectionState.CIRCUIT_OPEN:
-                if (datetime.now() - self.last_failure_time).seconds >= self.recovery_timeout:
+                if (self.last_failure_time and 
+                    (datetime.now() - self.last_failure_time).seconds >= self.recovery_timeout):
                     self.state = ConnectionState.DEGRADED
                     logger.info("Circuit breaker entering half-open state")
                 else:
@@ -287,7 +288,10 @@ class HealthMonitor:
         
         # All attempts failed
         logger.error(f"All {max_attempts} attempts failed for '{name}'")
-        raise last_exception
+        if last_exception:
+            raise last_exception
+        else:
+            raise ConnectionError(f"All {max_attempts} attempts failed for '{name}'")
 
 
 class OptimizedLineBotApi(LineBotApi):
@@ -305,7 +309,11 @@ class OptimizedLineBotApi(LineBotApi):
             pool_maxsize: Maximum number of connections to pool
             max_retries: Maximum number of retry attempts
         """
-        super().__init__(channel_access_token, endpoint, timeout)
+        # Initialize parent class with basic parameters
+        super().__init__(channel_access_token, endpoint)
+        
+        # Store timeout for later use
+        self.timeout = timeout
         
         # Configure retry strategy
         retry_strategy = Retry(
@@ -628,14 +636,21 @@ class ConnectionPoolManager:
         }
         default_config.update(kwargs)
         
-        line_bot_api = OptimizedLineBotApi(channel_access_token, **default_config)
-        
-        # Register for health monitoring
-        self.health_monitor.register_connection(
-            'line_bot_api',
-            lambda: self._health_check_line_api(line_bot_api),
-            failure_threshold=5
+        # Extract parameters that OptimizedLineBotApi accepts
+        line_bot_api = OptimizedLineBotApi(
+            channel_access_token,
+            timeout=default_config.get('timeout', 10),
+            pool_maxsize=default_config.get('pool_maxsize', 20),
+            max_retries=default_config.get('max_retries', 3)
         )
+        
+        # Register for health monitoring if available
+        if hasattr(self, 'health_monitor') and self.health_monitor:
+            self.health_monitor.register_connection(
+                'line_bot_api',
+                lambda: self._health_check_line_api(line_bot_api),
+                failure_threshold=5
+            )
         
         return line_bot_api
     
