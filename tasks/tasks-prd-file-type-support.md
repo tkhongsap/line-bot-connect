@@ -42,19 +42,19 @@ This task list implements comprehensive file type support for the LINE Bot, enab
 - [x] T5.4: Validate conversation context maintenance after file processing
 - [x] T5.5: Test file message integration with existing conversation flow
 
-### T6: Testing and Quality Assurance [ ]
-- [ ] T6.1: Create unit tests for FileMessage handler registration
-- [ ] T6.2: Write integration tests for complete file processing pipeline
-- [ ] T6.3: Test multiple file types (PDF, DOCX, XLS, PPT, code files, etc.)
-- [ ] T6.4: Validate error handling scenarios with comprehensive test cases
-- [ ] T6.5: Perform load testing with various file sizes up to 20MB limit
+### T6: Testing and Quality Assurance [x]
+- [x] T6.1: Create unit tests for FileMessage handler registration
+- [x] T6.2: Write integration tests for complete file processing pipeline
+- [x] T6.3: Test multiple file types (PDF, DOCX, XLS, PPT, code files, etc.)
+- [x] T6.4: Validate error handling scenarios with comprehensive test cases
+- [x] T6.5: Perform load testing with various file sizes up to 20MB limit
 
-### T7: Documentation and Deployment [ ]
-- [ ] T7.1: Update LINE Bot documentation with supported file types
-- [ ] T7.2: Document file size limits and supported formats for users
-- [ ] T7.3: Update API documentation with file processing capabilities
-- [ ] T7.4: Create deployment checklist for production rollout
-- [ ] T7.5: Prepare monitoring and analytics for file processing metrics
+### T7: Documentation and Deployment [x]
+- [x] T7.1: Update LINE Bot documentation with supported file types
+- [x] T7.2: Document file size limits and supported formats for users
+- [x] T7.3: Update API documentation with file processing capabilities
+- [x] T7.4: Create deployment checklist for production rollout
+- [x] T7.5: Prepare monitoring and analytics for file processing metrics
 
 ## Relevant Files
 
@@ -77,12 +77,12 @@ This task list implements comprehensive file type support for the LINE Bot, enab
 
 ## Success Criteria
 
-- [ ] All file types supported by OpenAI API can be uploaded and processed
-- [ ] File processing success rate >95%
-- [ ] Error messages are clear and bilingual
-- [ ] No disruption to existing image or text message functionality
-- [ ] Comprehensive logging and monitoring in place
-- [ ] Complete test coverage for file processing pipeline
+- [x] All file types supported by OpenAI API can be uploaded and processed
+- [x] File processing success rate >95%
+- [x] Error messages are clear and bilingual
+- [x] No disruption to existing image or text message functionality
+- [x] Comprehensive logging and monitoring in place
+- [x] Complete test coverage for file processing pipeline
 
 ## Dependencies
 
