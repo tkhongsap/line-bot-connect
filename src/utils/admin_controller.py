@@ -16,6 +16,7 @@ import uuid
 from src.utils.analytics_tracker import get_analytics_tracker
 from src.utils.interaction_handler import get_interaction_handler
 from src.utils.metrics_storage import get_metrics_storage
+from src.utils.memory_monitor import get_memory_monitor
 from src.services.rich_message_service import RichMessageService
 from src.services.line_service import LineService
 from src.config.settings import Settings
@@ -120,6 +121,7 @@ class AdminController:
         self.analytics_tracker = get_analytics_tracker()
         self.interaction_handler = get_interaction_handler()
         self.metrics_storage = get_metrics_storage()
+        self.memory_monitor = get_memory_monitor()
         
         # Campaign storage (in-memory for now, could be database later)
         self.campaigns: Dict[str, RichMessageCampaign] = {}
@@ -636,6 +638,30 @@ class AdminController:
                 database_status = "critical"
                 issues.append(f"Database error: {str(e)}")
             
+            # Check memory usage
+            memory_usage_mb = None
+            try:
+                memory_stats = self.memory_monitor.get_memory_stats()
+                memory_usage_mb = memory_stats.process_memory / (1024 * 1024)
+                
+                # Add memory-related warnings
+                if memory_stats.memory_percent >= 90:
+                    issues.append(f"Critical memory usage: {memory_stats.memory_percent:.1f}%")
+                elif memory_stats.memory_percent >= 70:
+                    warnings.append(f"High memory usage: {memory_stats.memory_percent:.1f}%")
+                
+                # Check for active memory alerts
+                active_alerts = self.memory_monitor.get_active_alerts()
+                for alert in active_alerts:
+                    if not alert.acknowledged:
+                        if alert.level.value in ['critical', 'emergency']:
+                            issues.append(f"Memory alert: {alert.title}")
+                        else:
+                            warnings.append(f"Memory alert: {alert.title}")
+                            
+            except Exception as e:
+                warnings.append(f"Memory monitoring error: {str(e)}")
+            
             # Calculate overall status
             if issues:
                 overall_status = "critical"
@@ -659,7 +685,7 @@ class AdminController:
                 analytics_service_status=analytics_status,
                 database_status=database_status,
                 avg_response_time_ms=avg_response_time,
-                memory_usage_mb=None,  # Could implement memory monitoring
+                memory_usage_mb=memory_usage_mb,
                 active_campaigns=active_campaigns,
                 pending_deliveries=0,  # Could implement delivery queue monitoring
                 issues=issues,

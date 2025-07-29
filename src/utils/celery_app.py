@@ -16,7 +16,8 @@ celery_app = Celery(
     backend=RESULT_BACKEND,
     include=[
         'src.tasks.image_processing',
-        'src.tasks.ai_processing'
+        'src.tasks.ai_processing',
+        'src.tasks.webhook_processing'
     ]
 )
 
@@ -33,6 +34,12 @@ celery_app.conf.update(
     task_routes={
         'src.tasks.image_processing.*': {'queue': 'image_queue'},
         'src.tasks.ai_processing.*': {'queue': 'ai_queue'},
+        'webhook.process_text_message': {'queue': 'webhook_queue'},
+        'webhook.process_image_message': {'queue': 'webhook_queue'},
+        'webhook.process_postback': {'queue': 'webhook_queue'},
+        'webhook.batch_process_rich_messages': {'queue': 'batch_queue'},
+        'webhook.health_check': {'queue': 'health_queue'},
+        'webhook.collect_metrics': {'queue': 'health_queue'},
     },
     
     # Worker settings

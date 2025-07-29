@@ -1,119 +1,73 @@
-# Rich Message Automation LINE Bot
+# LINE Bot with Azure OpenAI Integration
 
-## Overview
+## Project Overview
+A sophisticated LINE webhook service leveraging Azure OpenAI for intelligent, multilingual chatbot interactions. Provides advanced conversational AI capabilities with seamless web search, image understanding, file processing, and dynamic language support.
 
-This repository contains a comprehensive LINE Bot application with Rich Message automation capabilities. The system integrates Azure OpenAI (GPT-4.1-nano) for conversational AI with an automated Rich Message delivery system that generates daily inspirational content in Anthony Bourdain's authentic voice.
+**Current Status**: ✅ Active and Running with File Support
+- **Platform**: Replit (Python 3.11)
+- **Port**: 5000 (Flask + Gunicorn)
+- **Main Technologies**: Azure OpenAI (GPT-4.1-nano), Flask, LINE Bot SDK
+- **Latest Feature**: Comprehensive file type support for document analysis
 
-## User Preferences
+## Recent Changes
+- **2025-07-29**: Implemented comprehensive file type support
+  - Added FileMessage handler for processing all OpenAI-compatible file types
+  - Support for PDF, DOC, XLS, PPT, code files, and more (20+ formats)
+  - Enhanced FileProcessor with 20MB size limit and comprehensive error handling
+  - Complete test coverage with 1,978+ lines of new code
+  - Updated documentation and deployment checklist
+- **Previous**: Fixed critical HTTP/2 dependency issue by installing h2 package
+- **Current State**: All core services operational with full file processing capabilities
 
-Preferred communication style: Simple, everyday language.
-
-## System Architecture
-
-### Backend Architecture
-- **Framework**: Flask web application with modular service architecture
-- **Language**: Python 3.x with type hints and modern patterns
-- **Design Pattern**: Service-oriented architecture with clear separation of concerns
-- **Background Processing**: Celery with Redis for asynchronous task execution
-- **Session Management**: Flask sessions with secure secret handling
-
-### Frontend Architecture
-- **Web Interface**: Server-side rendered templates using Jinja2
-- **Styling**: Bootstrap with custom CSS for responsive design
-- **Admin Dashboard**: Comprehensive analytics and campaign management interface
-- **Mobile Support**: LINE Bot optimized for mobile messaging
-
-### Data Storage Solutions
-- **Primary Storage**: In-memory conversation management with Redis fallback
-- **Cache Layer**: Redis for conversation history, template cache, and content cache
-- **File Storage**: Local filesystem for templates and generated images
-- **Analytics**: SQLite-based metrics storage with aggregation capabilities
-
-### Authentication and Authorization
-- **LINE Bot Verification**: HMAC-SHA256 webhook signature validation
-- **Azure OpenAI**: API key-based authentication with fallback client support
-- **Admin Interface**: Token-based authentication (demo implementation)
-- **Security Headers**: Comprehensive CSP, HSTS, and security middleware
-
-## Key Components
+## Project Architecture
 
 ### Core Services
-1. **LineService**: Handles LINE Bot API integration, webhook processing, and message routing
-2. **OpenAIService**: Manages Azure OpenAI integration with Responses API and Chat Completions fallback
-3. **ConversationService**: Manages conversation history with memory optimization and Redis persistence
-4. **RichMessageService**: Automated Rich Message generation, template management, and delivery coordination
+- **OpenAI Service** (`src/services/openai_service.py`): Azure OpenAI integration with HTTP/2 connection pooling and file processing
+- **LINE Service** (`src/services/line_service.py`): LINE Bot API integration with webhook handling for text, image, and file messages
+- **Conversation Service** (`src/services/conversation_service.py`): Message context management with file metadata tracking
+- **Rich Message Service** (`src/services/rich_message_service.py`): Automated rich content delivery
+- **File Processor** (`src/utils/file_utils.py`): Comprehensive file handling with 20+ format support
 
-### Rich Message Automation System
-1. **TemplateManager**: Canva template loading, caching, and intelligent selection
-2. **ContentGenerator**: AI-powered content generation using Anthony Bourdain persona
-3. **ImageComposer**: PIL-based image composition with text overlay and styling
-4. **DeliveryTracker**: Comprehensive delivery monitoring with retry logic and error handling
+### Key Features
+1. **Conversational AI Flow**: LINE webhook → message processing → Azure OpenAI → response delivery
+2. **File Processing**: Upload and analyze documents, spreadsheets, presentations, and code files
+3. **Rich Message Automation**: Scheduled AI-generated motivational content with dynamic templates
+4. **Multilingual Support**: 9 languages (English, Thai, Chinese, Japanese, Korean, Vietnamese, Spanish, French, German)
+5. **Image Understanding**: GPT-4 vision API for image analysis
+6. **Web Search Integration**: Real-time information retrieval
+7. **Connection Pooling**: Optimized HTTP connections for all external APIs
 
-### Supporting Utilities
-1. **PromptManager**: Structured prompt engineering for consistent AI personality
-2. **TimezoneManager**: Global timezone detection and delivery scheduling
-3. **AnalyticsTracker**: Engagement metrics collection and success rate monitoring
-4. **SecurityUtils**: Webhook verification, CORS handling, and security headers
+### File Support Capabilities
+- **Documents**: PDF, DOC, DOCX, TXT, RTF, MD
+- **Spreadsheets**: XLS, XLSX, CSV, TSV
+- **Presentations**: PPT, PPTX
+- **Code Files**: PY, JS, HTML, CSS, JSON, XML, SQL
+- **Data Files**: JSON, XML, YAML, LOG
+- **Size Limit**: 20MB maximum with comprehensive validation
+- **Error Handling**: Bilingual error messages (Thai/English)
 
-## Data Flow
+### Entry Points
+- **Main App**: `app.py` (Flask application with all service initialization)
+- **Deployment**: `main.py` (Replit deployment entry point)
+- **Configuration**: `src/config/settings.py` (environment variable management)
 
-### Message Processing Flow
-1. LINE webhook receives user message
-2. Signature verification and payload validation
-3. Message routing based on type (text, image, postback)
-4. Conversation context retrieval from storage
-5. AI response generation via Azure OpenAI
-6. Response formatting and delivery via LINE API
-7. Conversation history update and analytics tracking
+## Environment Setup
+Required environment variables (set in Replit Secrets):
+- `LINE_CHANNEL_ACCESS_TOKEN`: LINE Bot API access token
+- `LINE_CHANNEL_SECRET`: LINE webhook signature verification key
+- `AZURE_OPENAI_API_KEY`: Azure OpenAI service authentication key
+- `AZURE_OPENAI_ENDPOINT`: Azure cognitive services endpoint URL
+- `AZURE_OPENAI_DEPLOYMENT_NAME`: Model deployment identifier
+- `SESSION_SECRET`: Flask session secret (auto-generated in development)
 
-### Rich Message Automation Flow
-1. Celery scheduled tasks trigger content generation
-2. Template selection based on time, mood, and user preferences
-3. AI content generation using Bourdain persona prompts
-4. Image composition with text overlay and styling
-5. Delivery coordination across global timezones
-6. User interaction tracking and engagement analytics
-7. Success rate monitoring and performance optimization
+## Testing Infrastructure
+- **Framework**: pytest with comprehensive coverage
+- **Test Coverage**: 1,978+ lines of new tests for file processing
+- **Test Types**: Unit, integration, and performance tests including file processing pipeline
+- **Coverage Target**: 80+ % maintained with full file support testing
+- **Mock Strategy**: Heavy use of mocks to avoid real API calls during testing
 
-## External Dependencies
-
-### Primary APIs
-- **LINE Messaging API**: Core bot functionality, webhook handling, and Rich Message delivery
-- **Azure OpenAI API**: GPT-4.1-nano model with Responses API for conversation continuity
-- **Redis**: Session storage, caching, and Celery message broker
-
-### Development Dependencies
-- **Flask**: Web framework with extensive middleware
-- **Celery**: Background task processing and scheduling
-- **PIL/Pillow**: Image processing with format support extensions
-- **pytest**: Comprehensive testing framework with 614 tests
-- **uv**: Modern Python dependency management
-
-### Optional Integrations
-- **pillow-heif**: HEIC/HEIF image format support for Samsung devices
-- **pillow-avif**: AVIF image format support for modern Android
-- **pillow-jxl**: JPEG XL support for cutting-edge formats
-
-## Deployment Strategy
-
-### Local Development
-- Direct Python execution with auto-reload
-- In-memory storage for rapid iteration
-- Debug mode with comprehensive logging
-- Hot-reload for template and static assets
-
-### Production Deployment
-- **Container**: Docker with multi-stage builds
-- **Web Server**: Gunicorn with multiple workers
-- **Reverse Proxy**: Nginx for static assets and load balancing
-- **Process Management**: Celery workers with Redis coordination
-- **Monitoring**: Prometheus metrics with health check endpoints
-
-### Scaling Considerations
-- Horizontal scaling via Docker Compose
-- Redis cluster for high-availability caching
-- Load balancing for webhook processing
-- Background task distribution across worker nodes
-- Database migration path from SQLite to PostgreSQL for production analytics
-
-The system is designed for gradual scaling from development to production with clear migration paths for each component. The modular architecture allows independent scaling of conversation processing, Rich Message generation, and delivery coordination.
+## User Preferences
+- Language: English
+- Focus: Debugging and maintaining production-ready code
+- Approach: Comprehensive problem-solving with detailed explanations

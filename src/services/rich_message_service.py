@@ -13,6 +13,8 @@ from typing import Dict, List, Optional, Any, Union, Tuple
 from datetime import datetime, timedelta
 import hashlib
 import time
+from src.utils.redis_manager import get_redis_manager, RedisConnectionManager
+from src.utils.lru_cache_manager import get_lru_cache, CacheType
 from linebot.models import (
     RichMenu, RichMenuSize, RichMenuArea, RichMenuBounds,
     PostbackAction, URIAction, MessageAction,
@@ -32,16 +34,20 @@ class RichMessageService:
                  template_manager: Optional[Any] = None,
                  content_generator: Optional[Any] = None, 
                  base_url: Optional[str] = None,
-                 openai_service: Optional[Any] = None) -> None:
+                 openai_service: Optional[Any] = None,
+                 redis_url: Optional[str] = None,
+                 enable_redis: bool = True) -> None:
         """
         Initialize Rich Message Service
         
         Args:
             line_bot_api: LINE Bot API instance for sending messages
-            template_manager: Template management utility (optional, will be implemented later)
-            content_generator: Content generation utility (optional, will be implemented later)
+            template_manager: Template management utility (optional)
+            content_generator: Content generation utility (optional)
             base_url: Base URL for generating image links (optional)
             openai_service: OpenAI service for Bourdain-style content generation (optional)
+            redis_url: Redis connection URL (optional)
+            enable_redis: Whether to enable Redis functionality
         """
         # Validate required parameters
         if not line_bot_api:
@@ -49,8 +55,6 @@ class RichMessageService:
         
         self.line_bot_api = line_bot_api
         
-        # Context storage for button interactions
-        self._button_context_storage = {}
         self.template_manager = template_manager
         self.content_generator = content_generator
         self.base_url = base_url
@@ -71,19 +75,93 @@ class RichMessageService:
         # Initialize Rich Menu configurations
         self._rich_menu_configs = self._load_rich_menu_configs()
         
-        # Initialize content caching system
-        self._content_cache = {}  # Cache for generated content
-        self._mood_cache = {}     # Cache for template mood detection
-        self._cache_ttl = 3600    # 1 hour cache TTL
-        self._max_cache_size = 100  # Maximum cached items
+        # Initialize Redis connection manager with graceful fallback
+        self.enable_redis = enable_redis
+        self.redis_manager: Optional[RedisConnectionManager] = None
+        self._redis_available = False
+        self._last_redis_check = None
+        self._redis_check_interval = 60  # Check Redis health every 60 seconds
         
-        # Initialize send rate limiting system
+        if self.enable_redis:
+            self._initialize_redis(redis_url)
+        
+        # Initialize LRU caching system with memory monitoring
+        self.content_cache = get_lru_cache(
+            name=f"rich_content_{id(self)}",
+            max_size=200,
+            max_memory_mb=50.0,
+            default_ttl=3600,  # 1 hour TTL
+            enable_memory_monitoring=True
+        )
+        
+        self.mood_cache = get_lru_cache(
+            name=f"rich_mood_{id(self)}",
+            max_size=500,
+            max_memory_mb=10.0,
+            default_ttl=24*3600,  # 24 hour TTL (moods don't change often)
+            enable_memory_monitoring=True
+        )
+        
+        # Legacy fallback caches for Redis operations
+        self._content_cache = {}  # For Redis fallback compatibility
+        self._mood_cache = {}     # For Redis fallback compatibility
+        self._cache_ttl = 3600    # Keep for Redis operations
+        
+        # Initialize send rate limiting system (in-memory fallback)
         self._send_history = {}   # Track last send times per user
         self._send_cooldown = 300 # 5 minutes cooldown between Rich Messages per user
         self._daily_send_limits = {} # Track daily send counts per user
         self._max_daily_sends = 10   # Maximum Rich Messages per user per day
         
-        logger.info("RichMessageService initialized with content caching and send rate limiting enabled")
+        # Initialize button context storage (in-memory fallback)
+        self._button_context_storage = {}
+        
+        # Log initialization status
+        cache_backend = "Redis" if self._redis_available else "LRU+in-memory"
+        logger.info(f"RichMessageService initialized with {cache_backend} caching, LRU eviction, and send rate limiting enabled")
+    
+    def _initialize_redis(self, redis_url: str = None):
+        """Initialize Redis connection manager."""
+        try:
+            self.redis_manager = get_redis_manager(redis_url=redis_url)
+            health_status = self.redis_manager.health_check()
+            self._redis_available = health_status.get('is_healthy', False)
+            self._last_redis_check = datetime.now()
+            
+            if self._redis_available:
+                logger.info("RichMessageService initialized with Redis backend")
+            else:
+                logger.warning("Redis health check failed, using in-memory fallback")
+                
+        except Exception as e:
+            logger.error(f"Failed to initialize Redis for RichMessageService: {e}")
+            self._redis_available = False
+    
+    def _check_redis_health(self) -> bool:
+        """Check Redis health periodically."""
+        if not self.enable_redis or not self.redis_manager:
+            return False
+        
+        now = datetime.now()
+        if (self._last_redis_check and 
+            (now - self._last_redis_check).total_seconds() < self._redis_check_interval):
+            return self._redis_available
+        
+        try:
+            health_status = self.redis_manager.health_check()
+            self._redis_available = health_status.get('is_healthy', False)
+            self._last_redis_check = now
+            
+            if self._redis_available:
+                logger.debug("Redis connection healthy for RichMessageService")
+            else:
+                logger.warning("Redis connection degraded for RichMessageService")
+                
+        except Exception as e:
+            logger.error(f"Redis health check failed in RichMessageService: {e}")
+            self._redis_available = False
+            
+        return self._redis_available
     
     def _get_cache_key(self, theme: str, template_name: Optional[str] = None, user_context: Optional[str] = None) -> str:
         """Generate cache key for content generation parameters"""
@@ -91,13 +169,50 @@ class RichMessageService:
         return hashlib.md5(key_data.encode()).hexdigest()[:16]
     
     def _get_cached_content(self, cache_key: str) -> Optional[Dict[str, str]]:
-        """Retrieve cached content if still valid"""
+        """Retrieve cached content with LRU -> Redis -> in-memory fallback hierarchy"""
         try:
+            # Try LRU cache first (fastest and most intelligent)
+            lru_result = self.content_cache.get(cache_key)
+            if lru_result is not None:
+                logger.debug(f"LRU cache hit for key: {cache_key}")
+                return lru_result
+            
+            # Try Redis if available
+            if self._check_redis_health():
+                def redis_operation(client):
+                    full_key = f"rich_content:{cache_key}"
+                    data = client.get(full_key)
+                    if data:
+                        try:
+                            cached_item = json.loads(data.decode('utf-8'))
+                            if isinstance(cached_item, dict) and 'timestamp' in cached_item and 'content' in cached_item:
+                                if time.time() - cached_item['timestamp'] < self._cache_ttl:
+                                    # Cache in LRU for future requests
+                                    self.content_cache.put(cache_key, cached_item['content'], cache_type=CacheType.CONTENT)
+                                    return cached_item['content']
+                        except (json.JSONDecodeError, KeyError) as e:
+                            logger.warning(f"Invalid cached content format for key {cache_key}: {e}")
+                    return None
+                
+                def fallback():
+                    return None
+                
+                result = self.redis_manager.execute_with_fallback(
+                    redis_operation, fallback, f"get_cached_content_{cache_key}"
+                )
+                
+                if result is not None:
+                    logger.debug(f"Redis cache hit for key: {cache_key}")
+                    return result
+            
+            # Fallback to legacy in-memory cache
             if cache_key in self._content_cache:
                 cached_item = self._content_cache[cache_key]
                 if isinstance(cached_item, dict) and 'timestamp' in cached_item and 'content' in cached_item:
                     if time.time() - cached_item['timestamp'] < self._cache_ttl:
-                        logger.debug(f"Cache hit for key: {cache_key}")
+                        logger.debug(f"Legacy memory cache hit for key: {cache_key}")
+                        # Migrate to LRU cache
+                        self.content_cache.put(cache_key, cached_item['content'], cache_type=CacheType.CONTENT)
                         return cached_item['content']
                     else:
                         # Cache expired, remove it
@@ -112,22 +227,55 @@ class RichMessageService:
         return None
     
     def _cache_content(self, cache_key: str, content: Dict[str, str]) -> None:
-        """Cache generated content with timestamp"""
+        """Cache generated content with LRU -> Redis -> in-memory hierarchy"""
         try:
             # Validate content before caching
             if not isinstance(content, dict) or 'title' not in content or 'content' not in content:
                 logger.warning(f"Invalid content format for caching, key: {cache_key}")
                 return
             
-            # Clean cache if it's getting too large
-            if len(self._content_cache) >= self._max_cache_size:
-                self._clean_old_cache_entries()
+            # Cache in LRU first (most efficient)
+            lru_success = self.content_cache.put(cache_key, content, cache_type=CacheType.CONTENT)
+            if lru_success:
+                logger.debug(f"Cached content in LRU cache for key: {cache_key}")
             
-            self._content_cache[cache_key] = {
-                'content': content,
-                'timestamp': time.time()
-            }
-            logger.debug(f"Cached content for key: {cache_key}")
+            # Also cache in Redis for persistence across restarts
+            if self._check_redis_health():
+                cache_item = {
+                    'content': content,
+                    'timestamp': time.time()
+                }
+                
+                def redis_operation(client):
+                    full_key = f"rich_content:{cache_key}"
+                    serialized_data = json.dumps(cache_item)
+                    return client.setex(full_key, self._cache_ttl, serialized_data)
+                
+                def fallback():
+                    return False
+                
+                success = self.redis_manager.execute_with_fallback(
+                    redis_operation, fallback, f"cache_content_{cache_key}"
+                )
+                
+                if success:
+                    logger.debug(f"Cached content in Redis for key: {cache_key}")
+                    return
+            
+            # Fallback to legacy in-memory cache only if LRU failed
+            if not lru_success:
+                cache_item = {
+                    'content': content,
+                    'timestamp': time.time()
+                }
+                
+                # Clean cache if it's getting too large (legacy logic)
+                max_cache_size = getattr(self, '_max_cache_size', 100)
+                if len(self._content_cache) >= max_cache_size:
+                    self._clean_old_cache_entries()
+                
+                self._content_cache[cache_key] = cache_item
+                logger.debug(f"Cached content in legacy memory for key: {cache_key}")
         except Exception as e:
             logger.error(f"Error caching content for key {cache_key}: {str(e)}")
     
@@ -157,7 +305,7 @@ class RichMessageService:
     
     def check_send_rate_limit(self, user_id: str, bypass_limit: bool = False) -> Dict[str, Any]:
         """
-        Check if user can receive a Rich Message based on rate limiting rules.
+        Check if user can receive a Rich Message based on rate limiting rules with Redis fallback.
         
         Args:
             user_id: User identifier
@@ -173,9 +321,13 @@ class RichMessageService:
         current_time = time.time()
         today = datetime.now().strftime('%Y-%m-%d')
         
+        # Get rate limit data with Redis fallback
+        send_history = self._get_rate_limit_data(user_id, "send_history")
+        daily_limits = self._get_rate_limit_data(user_id, "daily_limits", today)
+        
         # Check cooldown period
-        if user_id in self._send_history:
-            time_since_last = current_time - self._send_history[user_id]
+        if send_history:
+            time_since_last = current_time - send_history
             if time_since_last < self._send_cooldown:
                 remaining_cooldown = self._send_cooldown - time_since_last
                 next_allowed = datetime.fromtimestamp(current_time + remaining_cooldown)
@@ -189,14 +341,13 @@ class RichMessageService:
                 }
         
         # Check daily limit
-        daily_key = f"{user_id}:{today}"
-        daily_count = self._daily_send_limits.get(daily_key, 0)
+        daily_count = daily_limits if daily_limits else 0
         
         if daily_count >= self._max_daily_sends:
             logger.warning(f"Daily limit reached for user {user_id[:8]}...: {daily_count}/{self._max_daily_sends}")
             return {
                 "allowed": False,
-                "reason": "daily_limit",
+                "reason": "daily_limit", 
                 "daily_count": daily_count,
                 "max_daily": self._max_daily_sends,
                 "next_allowed": "tomorrow"
@@ -206,34 +357,23 @@ class RichMessageService:
         return {"allowed": True, "reason": "within_limits", "daily_count": daily_count}
     
     def record_message_sent(self, user_id: str) -> None:
-        """Record that a Rich Message was sent to user for rate limiting."""
+        """Record that a Rich Message was sent to user for rate limiting with Redis fallback."""
         current_time = time.time()
         today = datetime.now().strftime('%Y-%m-%d')
         
-        # Update send history
-        self._send_history[user_id] = current_time
+        # Update send history with Redis fallback
+        self._set_rate_limit_data(user_id, "send_history", current_time)
         
-        # Update daily count
-        daily_key = f"{user_id}:{today}"
-        self._daily_send_limits[daily_key] = self._daily_send_limits.get(daily_key, 0) + 1
+        # Update daily count with Redis fallback
+        current_daily_count = self._get_rate_limit_data(user_id, "daily_limits", today) or 0
+        new_daily_count = current_daily_count + 1
+        self._set_rate_limit_data(user_id, "daily_limits", new_daily_count, today)
         
-        # Cleanup old daily records (keep only last 7 days)
-        current_date = datetime.now()
-        keys_to_remove = []
-        for key in self._daily_send_limits.keys():
-            if ':' in key:
-                date_str = key.split(':', 1)[1]
-                try:
-                    record_date = datetime.strptime(date_str, '%Y-%m-%d')
-                    if (current_date - record_date).days > 7:
-                        keys_to_remove.append(key)
-                except ValueError:
-                    keys_to_remove.append(key)  # Invalid format, remove it
+        # Cleanup old daily records from in-memory fallback (Redis TTL handles its own cleanup)
+        if not self._redis_available:
+            self._cleanup_old_daily_records()
         
-        for key in keys_to_remove:
-            del self._daily_send_limits[key]
-        
-        logger.info(f"Recorded Rich Message send for user {user_id[:8]}... (daily: {self._daily_send_limits.get(daily_key, 0)}/{self._max_daily_sends})")
+        logger.info(f"Recorded Rich Message send for user {user_id[:8]}... (daily: {new_daily_count}/{self._max_daily_sends})")
     
     def get_send_status(self, user_id: str) -> Dict[str, Any]:
         """Get current send status and history for a user."""
@@ -437,10 +577,11 @@ class RichMessageService:
             return "authentic and conversational"
         
         try:
-            # Check mood cache first
-            if template_name in self._mood_cache:
+            # Check mood cache first with Redis fallback
+            cached_mood = self._get_mood_cache(template_name)
+            if cached_mood:
                 logger.debug(f"Mood cache hit for template: {template_name}")
-                return self._mood_cache[template_name]
+                return cached_mood
                 
             template_lower = template_name.lower()
             
@@ -507,8 +648,8 @@ class RichMessageService:
                 detected_mood = "authentic and conversational"
                 logger.debug(f"Template mood detection: '{template_name}' → default mood (no matches)")
             
-            # Cache the detected mood
-            self._mood_cache[template_name] = detected_mood
+            # Cache the detected mood with Redis fallback
+            self._set_mood_cache(template_name, detected_mood)
             return detected_mood
         
         except Exception as e:
@@ -1360,8 +1501,16 @@ Create content that connects to this specific visual context. Make Bourdain's vo
         
         bubble = BubbleContainer(**bubble_kwargs)
         
+        # Safe alt text generation
+        if content and len(content) > 50:
+            alt_text = f"{title}: {content[:50]}..."
+        elif content:
+            alt_text = f"{title}: {content}"
+        else:
+            alt_text = title or "Rich Message"
+        
         return FlexSendMessage(
-            alt_text=f"{title}: {content[:50]}..." if len(content) > 50 else f"{title}: {content}",
+            alt_text=alt_text,
             contents=bubble
         )
     
@@ -1553,7 +1702,7 @@ Create content that connects to this specific visual context. Make Bourdain's vo
     
     def store_button_context(self, content_id: str, rich_context: Dict[str, Any]) -> None:
         """
-        Store rich context for button interactions
+        Store rich context for button interactions with Redis fallback
         
         Args:
             content_id: Unique identifier for the content
@@ -1566,19 +1715,36 @@ Create content that connects to this specific visual context. Make Bourdain's vo
                 'stored_at': datetime.now().timestamp()
             }
             
+            # Try Redis first if available
+            if self._redis_available:
+                try:
+                    success = self.redis_cache.set(
+                        content_id,
+                        context_with_timestamp,
+                        ttl=24 * 3600,  # 24 hours
+                        prefix="button_context"
+                    )
+                    if success:
+                        logger.debug(f"Stored button context in Redis for content_id: {content_id}")
+                        return
+                except Exception as e:
+                    logger.warning(f"Redis button context store failed for {content_id}, falling back to memory: {str(e)}")
+                    self._redis_available = False
+            
+            # Fallback to in-memory storage
             self._button_context_storage[content_id] = context_with_timestamp
             
             # Clean old entries (older than 24 hours)
             self._clean_old_button_contexts()
             
-            logger.debug(f"Stored button context for content_id: {content_id}")
+            logger.debug(f"Stored button context in memory for content_id: {content_id}")
             
         except Exception as e:
             logger.error(f"Error storing button context: {str(e)}")
     
     def get_button_context(self, content_id: str) -> Optional[Dict[str, Any]]:
         """
-        Retrieve stored button context
+        Retrieve stored button context with Redis fallback
         
         Args:
             content_id: Unique identifier for the content
@@ -1587,14 +1753,28 @@ Create content that connects to this specific visual context. Make Bourdain's vo
             Rich context dictionary or None if not found
         """
         try:
-            context = self._button_context_storage.get(content_id)
+            context = None
+            
+            # Try Redis first if available
+            if self._redis_available:
+                try:
+                    context = self.redis_cache.get(content_id, prefix="button_context")
+                    if context:
+                        logger.debug(f"Retrieved button context from Redis for content_id: {content_id}")
+                except Exception as e:
+                    logger.warning(f"Redis button context read failed for {content_id}, falling back to memory: {str(e)}")
+                    self._redis_available = False
+            
+            # Fallback to in-memory storage
+            if not context:
+                context = self._button_context_storage.get(content_id)
+                if context:
+                    logger.debug(f"Retrieved button context from memory for content_id: {content_id}")
             
             if context:
                 # Remove timestamp before returning
                 context_copy = dict(context)
                 context_copy.pop('stored_at', None)
-                
-                logger.debug(f"Retrieved button context for content_id: {content_id}")
                 return context_copy
             else:
                 logger.warning(f"Button context not found for content_id: {content_id}")
@@ -1604,8 +1784,188 @@ Create content that connects to this specific visual context. Make Bourdain's vo
             logger.error(f"Error retrieving button context: {str(e)}")
             return None
     
+    def _get_rate_limit_data(self, user_id: str, data_type: str, date_key: Optional[str] = None) -> Optional[Any]:
+        """Get rate limit data with Redis fallback."""
+        try:
+            # Try Redis first if available
+            if self._check_redis_health():
+                def redis_operation(client):
+                    if data_type == "send_history":
+                        full_key = f"rate_limit_history:{user_id}"
+                        data = client.get(full_key)
+                        return float(data.decode('utf-8')) if data else None
+                    elif data_type == "daily_limits" and date_key:
+                        daily_key = f"{user_id}:{date_key}"
+                        full_key = f"rate_limit_daily:{daily_key}"
+                        data = client.get(full_key)
+                        return int(data.decode('utf-8')) if data else None
+                    return None
+                
+                def fallback():
+                    return None
+                
+                result = self.redis_manager.execute_with_fallback(
+                    redis_operation, fallback, f"get_rate_limit_{data_type}_{user_id}"
+                )
+                
+                if result is not None:
+                    return result
+            
+            # Fallback to in-memory storage
+            if data_type == "send_history":
+                return self._send_history.get(user_id)
+            elif data_type == "daily_limits" and date_key:
+                daily_key = f"{user_id}:{date_key}"
+                return self._daily_send_limits.get(daily_key)
+                
+        except Exception as e:
+            logger.error(f"Error getting rate limit data for {user_id}: {str(e)}")
+            return None
+    
+    def _set_rate_limit_data(self, user_id: str, data_type: str, value: Any, date_key: Optional[str] = None) -> None:
+        """Set rate limit data with Redis fallback."""
+        try:
+            # Try Redis first if available
+            if self._check_redis_health():
+                def redis_operation(client):
+                    if data_type == "send_history":
+                        full_key = f"rate_limit_history:{user_id}"
+                        ttl = self._send_cooldown + 60
+                        return client.setex(full_key, ttl, str(value))
+                    elif data_type == "daily_limits" and date_key:
+                        daily_key = f"{user_id}:{date_key}"
+                        full_key = f"rate_limit_daily:{daily_key}"
+                        ttl = 25 * 3600  # 25 hours for timezone differences
+                        return client.setex(full_key, ttl, str(value))
+                    return False
+                
+                def fallback():
+                    return False
+                
+                success = self.redis_manager.execute_with_fallback(
+                    redis_operation, fallback, f"set_rate_limit_{data_type}_{user_id}"
+                )
+                
+                if success:
+                    return
+            
+            # Fallback to in-memory storage
+            if data_type == "send_history":
+                self._send_history[user_id] = value
+            elif data_type == "daily_limits" and date_key:
+                daily_key = f"{user_id}:{date_key}"
+                self._daily_send_limits[daily_key] = value
+                
+        except Exception as e:
+            logger.error(f"Error setting rate limit data for {user_id}: {str(e)}")
+    
+    def _get_mood_cache(self, template_name: str) -> Optional[str]:
+        """Get mood cache with LRU -> Redis -> in-memory fallback hierarchy."""
+        try:
+            # Try LRU cache first (fastest)
+            lru_result = self.mood_cache.get(template_name)
+            if lru_result is not None:
+                logger.debug(f"LRU mood cache hit for template: {template_name}")
+                return lru_result
+            
+            # Try Redis if available
+            if self._check_redis_health():
+                def redis_operation(client):
+                    full_key = f"mood_cache:{template_name}"
+                    data = client.get(full_key)
+                    if data:
+                        mood = data.decode('utf-8')
+                        # Cache in LRU for future requests
+                        self.mood_cache.put(template_name, mood, cache_type=CacheType.MOOD)
+                        return mood
+                    return None
+                
+                def fallback():
+                    return None
+                
+                result = self.redis_manager.execute_with_fallback(
+                    redis_operation, fallback, f"get_mood_cache_{template_name}"
+                )
+                
+                if result is not None:
+                    logger.debug(f"Redis mood cache hit for template: {template_name}")
+                    return result
+            
+            # Fallback to legacy in-memory cache
+            legacy_result = self._mood_cache.get(template_name)
+            if legacy_result is not None:
+                logger.debug(f"Legacy mood cache hit for template: {template_name}")
+                # Migrate to LRU cache
+                self.mood_cache.put(template_name, legacy_result, cache_type=CacheType.MOOD)
+                return legacy_result
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting mood cache for {template_name}: {str(e)}")
+            return None
+    
+    def _set_mood_cache(self, template_name: str, mood: str) -> None:
+        """Set mood cache with LRU -> Redis -> in-memory hierarchy."""
+        try:
+            # Cache in LRU first (most efficient)
+            lru_success = self.mood_cache.put(template_name, mood, cache_type=CacheType.MOOD)
+            if lru_success:
+                logger.debug(f"Cached mood in LRU cache for template: {template_name}")
+            
+            # Also cache in Redis for persistence
+            if self._check_redis_health():
+                def redis_operation(client):
+                    full_key = f"mood_cache:{template_name}"
+                    # Mood cache has longer TTL since templates don't change often
+                    ttl = 24 * 3600  # 24 hours
+                    return client.setex(full_key, ttl, mood)
+                
+                def fallback():
+                    return False
+                
+                success = self.redis_manager.execute_with_fallback(
+                    redis_operation, fallback, f"set_mood_cache_{template_name}"
+                )
+                
+                if success:
+                    logger.debug(f"Cached mood in Redis for template: {template_name}")
+                    return
+            
+            # Fallback to legacy in-memory cache only if LRU failed
+            if not lru_success:
+                self._mood_cache[template_name] = mood
+                logger.debug(f"Cached mood in legacy memory for template: {template_name}")
+            
+        except Exception as e:
+            logger.error(f"Error setting mood cache for {template_name}: {str(e)}")
+    
+    def _cleanup_old_daily_records(self) -> None:
+        """Cleanup old daily records from in-memory storage (only when Redis is not available)."""
+        try:
+            current_date = datetime.now()
+            keys_to_remove = []
+            for key in self._daily_send_limits.keys():
+                if ':' in key:
+                    date_str = key.split(':', 1)[1]
+                    try:
+                        record_date = datetime.strptime(date_str, '%Y-%m-%d')
+                        if (current_date - record_date).days > 7:
+                            keys_to_remove.append(key)
+                    except ValueError:
+                        keys_to_remove.append(key)  # Invalid format, remove it
+            
+            for key in keys_to_remove:
+                del self._daily_send_limits[key]
+                
+            if keys_to_remove:
+                logger.debug(f"Cleaned {len(keys_to_remove)} old daily limit records from memory")
+                
+        except Exception as e:
+            logger.error(f"Error cleaning old daily records: {str(e)}")
+    
     def _clean_old_button_contexts(self) -> None:
-        """Clean button contexts older than 24 hours"""
+        """Clean button contexts older than 24 hours from in-memory storage"""
         try:
             current_time = datetime.now().timestamp()
             cutoff_time = current_time - (24 * 60 * 60)  # 24 hours ago
@@ -1621,7 +1981,72 @@ Create content that connects to this specific visual context. Make Bourdain's vo
                 del self._button_context_storage[key]
             
             if old_keys:
-                logger.debug(f"Cleaned {len(old_keys)} old button contexts")
+                logger.debug(f"Cleaned {len(old_keys)} old button contexts from memory")
                 
         except Exception as e:
             logger.error(f"Error cleaning old button contexts: {str(e)}")
+    
+    def health_check(self) -> Dict[str, Any]:
+        """Get health status of RichMessageService including Redis connectivity and LRU cache stats."""
+        try:
+            # Get LRU cache statistics
+            content_cache_stats = self.content_cache.get_health_status()
+            mood_cache_stats = self.mood_cache.get_health_status()
+            
+            health_status = {
+                'service': 'RichMessageService',
+                'status': 'healthy',
+                'cache_backend': 'Redis+LRU' if self._redis_available else 'LRU+in-memory',
+                'redis_available': self._redis_available,
+                'lru_caches': {
+                    'content_cache': content_cache_stats,
+                    'mood_cache': mood_cache_stats
+                },
+                'legacy_cache_sizes': {
+                    'memory_cache_size': len(self._content_cache),
+                    'mood_cache_size': len(self._mood_cache),
+                    'button_contexts': len(self._button_context_storage),
+                    'send_history_size': len(self._send_history),
+                    'daily_limits_size': len(self._daily_send_limits)
+                }
+            }
+            
+            # Update overall status based on cache health
+            if (content_cache_stats['status'] in ['critical', 'warning'] or 
+                mood_cache_stats['status'] in ['critical', 'warning']):
+                health_status['status'] = 'warning'
+            
+            # Add Redis health information if available
+            if self.redis_manager and self.enable_redis:
+                try:
+                    redis_health = self.redis_manager.health_check()
+                    health_status['redis_health'] = redis_health
+                    
+                    redis_stats = self.redis_manager.get_statistics()
+                    health_status['redis_statistics'] = redis_stats
+                    
+                    # Update availability based on current health
+                    current_redis_health = redis_health.get('is_healthy', False)
+                    if current_redis_health != self._redis_available:
+                        self._redis_available = current_redis_health
+                        health_status['redis_available'] = current_redis_health
+                        health_status['cache_backend'] = 'Redis' if current_redis_health else 'in-memory'
+                        
+                        if current_redis_health:
+                            logger.info("Redis connection restored for RichMessageService")
+                        else:
+                            logger.warning("Redis connection lost for RichMessageService")
+                            
+                except Exception as e:
+                    logger.debug(f"Redis health check failed for RichMessageService: {str(e)}")
+                    health_status['redis_error'] = str(e)
+            
+            return health_status
+            
+        except Exception as e:
+            logger.error(f"Error performing RichMessageService health check: {str(e)}")
+            return {
+                'service': 'RichMessageService',
+                'status': 'error',
+                'error': str(e)
+            }

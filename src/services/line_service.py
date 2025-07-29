@@ -3,14 +3,25 @@ import hashlib
 import hmac
 import base64
 import logging
+import time
+import requests.adapters
+from urllib3.util.retry import Retry
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError, LineBotApiError
 from linebot.models import (
     MessageEvent, TextMessage, ImageMessage, TextSendMessage,
     PostbackEvent, FlexSendMessage
 )
+from src.utils.connection_pool import OptimizedLineBotApi, connection_pool_manager
+from src.exceptions import (
+    LineAPIException, ValidationException, AuthenticationException,
+    NetworkException, TimeoutException, DataProcessingException,
+    BaseBotException, create_correlation_id, wrap_api_exception,
+    log_exception
+)
+from src.utils.error_handler import StructuredLogger, error_handler, retry_with_backoff
 
-logger = logging.getLogger(__name__)
+logger = StructuredLogger(__name__)
 
 class LineService:
     """LINE Bot service for handling messages and webhook verification"""
@@ -21,9 +32,21 @@ class LineService:
         self.conversation_service = conversation_service
         self.rich_message_service = rich_message_service
         
-        # Initialize LINE Bot API
-        self.line_bot_api = LineBotApi(settings.LINE_CHANNEL_ACCESS_TOKEN)
+        # Initialize connection pools for LINE API
+        self._setup_line_connection_pools()
+        
+        # Initialize LINE Bot API with enhanced connection pooling
+        self.line_bot_api = self._create_optimized_line_bot_api(settings.LINE_CHANNEL_ACCESS_TOKEN)
         self.handler = WebhookHandler(settings.LINE_CHANNEL_SECRET)
+        
+        # Initialize connection metrics
+        self.connection_metrics = {
+            'webhook_requests': 0,
+            'api_calls': 0,
+            'successful_calls': 0,
+            'failed_calls': 0,
+            'avg_response_time': 0.0
+        }
         
         # Register message handlers
         @self.handler.add(MessageEvent, message=TextMessage)
@@ -40,25 +63,165 @@ class LineService:
         def handle_postback(event):
             self._handle_postback_event(event)
     
+    def _setup_line_connection_pools(self):
+        """Set up connection pools for LINE API operations."""
+        # Create dedicated session for LINE Bot API
+        self.line_api_session = connection_pool_manager.create_session_with_pooling(
+            name="line_bot_api",
+            base_url="https://api.line.me",
+            pool_maxsize=15,  # Medium pool size for LINE API
+            max_retries=3,
+            enable_keep_alive=True
+        )
+        
+        # Create session for LINE content API (image downloads)
+        self.line_content_session = connection_pool_manager.create_session_with_pooling(
+            name="line_content_api",
+            base_url="https://api-data.line.me",
+            pool_maxsize=10,  # Smaller pool for content downloads
+            max_retries=2,
+            enable_keep_alive=True
+        )
+        
+        logger.info("Set up connection pools for LINE API service")
+    
+    def _create_optimized_line_bot_api(self, channel_access_token: str) -> OptimizedLineBotApi:
+        """Create optimized LINE Bot API client with enhanced connection pooling."""
+        # Use connection pool manager to create LINE Bot API
+        line_bot_api = connection_pool_manager.create_line_bot_api(
+            channel_access_token=channel_access_token,
+            timeout=10,
+            pool_maxsize=15,
+            max_retries=3
+        )
+        
+        logger.info("Created optimized LINE Bot API client with connection pooling")
+        return line_bot_api
+    
+    def get_connection_metrics(self) -> dict:
+        """Get LINE service connection metrics."""
+        pool_metrics = connection_pool_manager.get_metrics()
+        
+        # Filter for LINE-related pools
+        line_pools = {k: v for k, v in pool_metrics.get('pools', {}).items() if 'line' in k}
+        
+        return {
+            'service_metrics': self.connection_metrics,
+            'line_connection_pools': line_pools,
+            'total_line_pools': len(line_pools),
+            'pool_health': {k: v for k, v in pool_metrics.get('health', {}).items() if 'line' in k}
+        }
+    
+    @error_handler(reraise=False, default_return={'success': False, 'error': 'Webhook processing failed'})
     def handle_webhook(self, signature, body):
-        """Handle incoming webhook from LINE"""
-        try:
-            # Verify webhook signature
-            if not self._verify_signature(signature, body):
-                logger.error("Invalid webhook signature")
-                return {'success': False, 'error': 'Invalid signature'}
+        """Handle incoming webhook from LINE with comprehensive error handling and connection pooling."""
+        correlation_id = create_correlation_id()
+        start_time = time.time()
+        
+        with logger.context(correlation_id=correlation_id, operation='webhook_processing'):
+            logger.info("Processing LINE webhook request with connection pooling")
             
-            # Handle the webhook event
-            self.handler.handle(body, signature)
+            try:
+                # Track webhook request
+                self.connection_metrics['webhook_requests'] += 1
+                # Validate input parameters
+                if not signature:
+                    raise ValidationException(
+                        message="Missing webhook signature",
+                        field="signature",
+                        correlation_id=correlation_id,
+                        user_message="Invalid request signature"
+                    )
+                
+                if not body:
+                    raise ValidationException(
+                        message="Missing webhook body",
+                        field="body", 
+                        correlation_id=correlation_id,
+                        user_message="Invalid request body"
+                    )
+                
+                # Verify webhook signature
+                if not self._verify_signature(signature, body):
+                    raise AuthenticationException(
+                        message="Webhook signature verification failed",
+                        service="LINE_WEBHOOK",
+                        correlation_id=correlation_id,
+                        context={'signature_provided': bool(signature)}
+                    )
+                
+                # Handle the webhook event with timeout protection and connection pooling
+                try:
+                    # Use connection pool manager for webhook handling
+                    def process_webhook():
+                        self.handler.handle(body, signature)
+                        return {'success': True, 'correlation_id': correlation_id}
+                    
+                    result = connection_pool_manager.execute_with_retry(
+                        "line_bot_api",
+                        process_webhook,
+                        max_attempts=2
+                    )
+                    
+                    # Update success metrics
+                    response_time = time.time() - start_time
+                    self.connection_metrics['successful_calls'] += 1
+                    self.connection_metrics['avg_response_time'] = (
+                        (self.connection_metrics['avg_response_time'] * (self.connection_metrics['successful_calls'] - 1) + response_time) /
+                        self.connection_metrics['successful_calls']
+                    )
+                    
+                    logger.info(
+                        "Webhook processed successfully with connection pooling", 
+                        correlation_id=correlation_id,
+                        extra_context={'response_time': response_time}
+                    )
+                    return result
+                    
+                except Exception as handler_error:
+                    # Update failure metrics
+                    self.connection_metrics['failed_calls'] += 1
+                    
+                    # Wrap handler errors as processing exceptions
+                    raise DataProcessingException(
+                        message=f"Webhook event processing failed: {str(handler_error)}",
+                        operation="event_handling",
+                        data_type="webhook_event",
+                        correlation_id=correlation_id,
+                        original_exception=handler_error
+                    )
             
-            return {'success': True}
+            except InvalidSignatureError as e:
+                # Update failure metrics
+                self.connection_metrics['failed_calls'] += 1
+                
+                raise AuthenticationException(
+                    message="LINE Bot SDK signature validation failed",
+                    service="LINE_WEBHOOK",
+                    correlation_id=correlation_id,
+                    original_exception=e
+                )
             
-        except InvalidSignatureError:
-            logger.error("Invalid signature error")
-            return {'success': False, 'error': 'Invalid signature'}
-        except Exception as e:
-            logger.error(f"Error handling webhook: {str(e)}")
-            return {'success': False, 'error': str(e)}
+            except BaseBotException:
+                # Update failure metrics for custom exceptions
+                self.connection_metrics['failed_calls'] += 1
+                # Re-raise our custom exceptions
+                raise
+            
+            except Exception as e:
+                # Wrap unexpected errors
+                logger.exception(
+                    "Unexpected error in webhook processing",
+                    exception=e,
+                    correlation_id=correlation_id
+                )
+                raise DataProcessingException(
+                    message=f"Unexpected webhook processing error: {str(e)}",
+                    operation="webhook_processing",
+                    data_type="webhook_request",
+                    correlation_id=correlation_id,
+                    original_exception=e
+                )
     
     def _verify_signature(self, signature, body):
         """Verify LINE webhook signature"""
@@ -255,23 +418,77 @@ class LineService:
 
 
 
+    @retry_with_backoff(
+        max_attempts=3,
+        handle_types=(LineBotApiError, NetworkException, TimeoutException)
+    )
     def _send_message(self, reply_token, message_text):
-        """Send message back to LINE user"""
-        try:
-            # LINE message limit is 5000 characters
-            if len(message_text) > 5000:
-                message_text = message_text[:4900] + "\n\n[訊息過長已截斷 / Message truncated]"
+        """Send message back to LINE user with retry logic and error handling."""
+        correlation_id = create_correlation_id()
+        
+        with logger.context(correlation_id=correlation_id, operation='send_message'):
+            try:
+                # Validate inputs
+                if not reply_token:
+                    raise ValidationException(
+                        message="Reply token is required",
+                        field="reply_token",
+                        correlation_id=correlation_id
+                    )
+                
+                if not message_text:
+                    raise ValidationException(
+                        message="Message text cannot be empty",
+                        field="message_text",
+                        correlation_id=correlation_id
+                    )
+                
+                # LINE message limit is 5000 characters
+                original_length = len(message_text)
+                if original_length > 5000:
+                    message_text = message_text[:4900] + "\n\n[訊息過長已截斷 / Message truncated]"
+                    logger.warning(
+                        f"Message truncated from {original_length} to {len(message_text)} characters",
+                        correlation_id=correlation_id
+                    )
+                
+                # Create and send message
+                message = TextSendMessage(text=message_text)
+                self.line_bot_api.reply_message(reply_token, message)
+                
+                logger.info(
+                    f"Message sent successfully ({len(message_text)} chars)",
+                    correlation_id=correlation_id
+                )
+                
+            except LineBotApiError as e:
+                # Wrap LINE API errors with our exception system
+                status_code = getattr(e, 'status_code', None)
+                error_msg = getattr(e.error, 'message', str(e)) if hasattr(e, 'error') and e.error else str(e)
+                
+                raise LineAPIException(
+                    message=f"Failed to send reply message: {error_msg}",
+                    status_code=status_code,
+                    correlation_id=correlation_id,
+                    original_exception=e,
+                    context={
+                        'reply_token': reply_token[:10] + "..." if reply_token else None,
+                        'message_length': len(message_text)
+                    }
+                )
             
-            message = TextSendMessage(text=message_text)
-            self.line_bot_api.reply_message(reply_token, message)
+            except ValidationException:
+                # Re-raise validation errors
+                raise
             
-        except LineBotApiError as e:
-            error_msg = getattr(e.error, 'message', str(e)) if hasattr(e, 'error') and e.error else str(e)
-            logger.error(f"LINE Bot API error: {e.status_code} - {error_msg}")
-            raise
-        except Exception as e:
-            logger.error(f"Error sending message: {str(e)}")
-            raise
+            except Exception as e:
+                # Wrap unexpected errors
+                raise wrap_api_exception(
+                    original_exception=e,
+                    api_name="LINE",
+                    operation="send_reply_message",
+                    correlation_id=correlation_id
+                )
     
     def send_push_message(self, user_id, message_text):
         """Send push message to specific user (for testing)"""

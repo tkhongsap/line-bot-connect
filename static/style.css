@@ -1,25 +1,114 @@
 /* Custom styles for LINE Bot Dashboard */
 
-/* Ensure proper dark theme consistency */
-body {
-    background-color: var(--bs-body-bg);
-    color: var(--bs-body-color);
+/* Dark theme styling with fallbacks */
+:root {
+    --primary-color: #0d6efd;
+    --success-color: #198754;
+    --info-color: #0dcaf0;
+    --warning-color: #ffc107;
+    --danger-color: #dc3545;
+    --dark-bg: #212529;
+    --dark-bg-subtle: #343a40;
+    --dark-border: #495057;
+    --light-text: #f8f9fa;
+    --muted-text: #6c757d;
 }
 
-/* Card hover effects */
+/* Dark theme for body with gradient */
+body {
+    background: linear-gradient(135deg, #1a1d23 0%, #212529 50%, #2c3036 100%) !important;
+    background-attachment: fixed;
+    color: var(--light-text, #f8f9fa) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+}
+
+/* Container styling */
+.container {
+    background: rgba(33, 37, 41, 0.8);
+    border-radius: 1rem;
+    padding: 2rem;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* Card styling with dark theme */
 .card {
+    background-color: var(--dark-bg-subtle, #343a40) !important;
+    border: 1px solid var(--dark-border, #495057) !important;
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    border: 1px solid var(--bs-border-color);
+    border-radius: 0.75rem !important;
 }
 
 .card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4) !important;
 }
 
-/* Status indicators */
+.card-header {
+    background-color: var(--dark-bg, #212529) !important;
+    border-bottom: 1px solid var(--dark-border, #495057) !important;
+    color: var(--light-text, #f8f9fa) !important;
+}
+
+.card-body {
+    color: var(--light-text, #f8f9fa) !important;
+}
+
+.card-title {
+    color: var(--light-text, #f8f9fa) !important;
+    font-weight: 600;
+}
+
+/* Enhanced status indicators and badges */
 .badge {
     font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+}
+
+.badge.bg-success {
+    background-color: var(--success-color, #198754) !important;
+    color: white !important;
+}
+
+.badge.bg-info {
+    background-color: var(--info-color, #0dcaf0) !important;
+    color: var(--dark-bg, #212529) !important;
+}
+
+.badge.bg-warning {
+    background-color: var(--warning-color, #ffc107) !important;
+    color: var(--dark-bg, #212529) !important;
+}
+
+.badge.bg-primary {
+    background-color: var(--primary-color, #0d6efd) !important;
+    color: white !important;
+}
+
+/* Text colors */
+.text-success {
+    color: var(--success-color, #198754) !important;
+}
+
+.text-info {
+    color: var(--info-color, #0dcaf0) !important;
+}
+
+.text-warning {
+    color: var(--warning-color, #ffc107) !important;
+}
+
+.text-primary {
+    color: var(--primary-color, #0d6efd) !important;
+}
+
+.text-muted {
+    color: var(--muted-text, #6c757d) !important;
 }
 
 /* Code blocks */
@@ -35,37 +124,86 @@ code {
     font-size: 0.875rem;
 }
 
-/* Button improvements */
+/* Enhanced button styling */
 .btn {
     transition: all 0.2s ease-in-out;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
 }
 
 .btn:hover {
     transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-/* Input group styling */
+.btn-outline-secondary {
+    border-color: var(--dark-border, #495057) !important;
+    color: var(--light-text, #f8f9fa) !important;
+}
+
+.btn-outline-secondary:hover {
+    background-color: var(--dark-border, #495057) !important;
+    border-color: var(--dark-border, #495057) !important;
+    color: var(--light-text, #f8f9fa) !important;
+}
+
+.btn-primary {
+    background-color: var(--primary-color, #0d6efd) !important;
+    border-color: var(--primary-color, #0d6efd) !important;
+}
+
+.btn-success {
+    background-color: var(--success-color, #198754) !important;
+    border-color: var(--success-color, #198754) !important;
+}
+
+/* Enhanced input group styling */
 .input-group .form-control {
-    background-color: var(--bs-secondary-bg);
-    border-color: var(--bs-border-color);
-    color: var(--bs-body-color);
+    background-color: var(--dark-bg-subtle, #343a40) !important;
+    border-color: var(--dark-border, #495057) !important;
+    color: var(--light-text, #f8f9fa) !important;
+    border-radius: 0.5rem;
 }
 
 .input-group .form-control:focus {
-    background-color: var(--bs-secondary-bg);
-    border-color: var(--bs-primary);
-    color: var(--bs-body-color);
-    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+    background-color: var(--dark-bg-subtle, #343a40) !important;
+    border-color: var(--primary-color, #0d6efd) !important;
+    color: var(--light-text, #f8f9fa) !important;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
 }
 
-/* Table styling */
+.form-label {
+    color: var(--light-text, #f8f9fa) !important;
+    font-weight: 600;
+}
+
+.form-text {
+    color: var(--muted-text, #6c757d) !important;
+}
+
+/* Enhanced table styling */
 .table {
     --bs-table-bg: transparent;
+    color: var(--light-text, #f8f9fa) !important;
+}
+
+.table th {
+    background-color: var(--dark-bg, #212529) !important;
+    color: var(--light-text, #f8f9fa) !important;
+    border-color: var(--dark-border, #495057) !important;
+    font-weight: 600;
+}
+
+.table td {
+    color: var(--light-text, #f8f9fa) !important;
+    border-color: var(--dark-border, #495057) !important;
 }
 
 .table-responsive {
-    border-radius: 0.375rem;
-    border: 1px solid var(--bs-border-color);
+    border-radius: 0.75rem;
+    border: 1px solid var(--dark-border, #495057) !important;
+    background-color: var(--dark-bg-subtle, #343a40) !important;
 }
 
 /* List group styling */
@@ -75,25 +213,45 @@ code {
     color: var(--bs-body-color);
 }
 
-/* Icons */
+/* Enhanced icon styling with glow effects */
 .fa-robot {
-    color: var(--bs-primary);
+    color: var(--primary-color, #0d6efd) !important;
+    text-shadow: 0 0 10px rgba(13, 110, 253, 0.5);
 }
 
 .fa-check-circle {
-    color: var(--bs-success);
+    color: var(--success-color, #198754) !important;
+    text-shadow: 0 0 8px rgba(25, 135, 84, 0.4);
 }
 
 .fa-users {
-    color: var(--bs-info);
+    color: var(--info-color, #0dcaf0) !important;
+    text-shadow: 0 0 8px rgba(13, 202, 240, 0.4);
 }
 
 .fa-comments {
-    color: var(--bs-warning);
+    color: var(--warning-color, #ffc107) !important;
+    text-shadow: 0 0 8px rgba(255, 193, 7, 0.4);
 }
 
 .fa-brain {
-    color: var(--bs-primary);
+    color: var(--primary-color, #0d6efd) !important;
+    text-shadow: 0 0 10px rgba(13, 110, 253, 0.5);
+}
+
+.fa-link {
+    color: var(--primary-color, #0d6efd) !important;
+}
+
+/* Header styling */
+.display-6 {
+    color: var(--light-text, #f8f9fa) !important;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.lead {
+    color: var(--muted-text, #6c757d) !important;
 }
 
 /* Responsive adjustments */
