@@ -35,7 +35,7 @@ except Exception as e:
 
 # Enable AVIF support (modern Android devices)
 try:
-    from pillow_avif import AvifImagePlugin
+    import pillow_avif_plugin
     logger.info("AVIF image format support enabled")
 except ImportError:
     logger.warning("AVIF support not available - install pillow-avif-plugin for modern Android support")
@@ -44,7 +44,7 @@ except Exception as e:
 
 # Enable JPEG XL support (emerging format)
 try:
-    import pillow_jxl  # Import the plugin module
+    import pillow_jxl_plugin
     logger.info("JPEG XL image format support enabled")
 except ImportError:
     logger.warning("JPEG XL support not available - install pillow-jxl-plugin for cutting-edge format support")
@@ -339,10 +339,11 @@ class ImageProcessor:
             # Execute download with connection pooling and retry logic
             if self.image_session:
                 backoff = ExponentialBackoff(base_delay=0.5, max_delay=5.0, multiplier=1.5)
+                # Ensure max_attempts is an integer to prevent type errors
                 image_data = connection_pool_manager.execute_with_retry(
                     "line_content_api",
                     download_operation,
-                    max_attempts=2,
+                    max_attempts=int(2),  # Explicitly cast to int
                     backoff=backoff
                 )
             else:
@@ -411,12 +412,37 @@ class ImageProcessor:
             }
         except Exception as e:
             self.download_metrics['failed_downloads'] += 1
-            logger.error(f"Error downloading image {message_id} with connection pooling: {str(e)}")
+            error_type = type(e).__name__
+            logger.error(f"Error downloading image {message_id} with connection pooling: {error_type}: {str(e)}")
+            
+            # More specific error messages based on exception type
+            if "connection" in str(e).lower():
+                error_msg = "Connection error - please check your network"
+                error_code = "CONNECTION_ERROR"
+            elif "timeout" in str(e).lower():
+                error_msg = "Request timed out - please try again"
+                error_code = "REQUEST_TIMEOUT"
+            elif "permission" in str(e).lower() or "forbidden" in str(e).lower():
+                error_msg = "Access denied - unable to download image"
+                error_code = "ACCESS_DENIED"
+            elif "not found" in str(e).lower():
+                error_msg = "Image not found or expired"
+                error_code = "IMAGE_NOT_FOUND"
+            else:
+                error_msg = f'Failed to download image: {str(e)}'
+                error_code = 'DOWNLOAD_FAILED'
+            
             return {
                 'success': False,
-                'error': f'Failed to download image: {str(e)}',
-                'error_code': 'DOWNLOAD_FAILED',
-                'download_time': time.time() - start_time
+                'error': error_msg,
+                'error_code': error_code,
+                'error_type': error_type,
+                'download_time': time.time() - start_time,
+                'debug_info': {
+                    'message_id': message_id,
+                    'pooled': self.image_session is not None,
+                    'timeout_seconds': timeout_seconds
+                }
             }
     
     def get_download_metrics(self) -> Dict:

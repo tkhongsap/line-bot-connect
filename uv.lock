@@ -641,6 +641,28 @@ wheels = [
 ]
 
 [[package]]
+name = "h2"
+version = "4.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "hpack" },
+    { name = "hyperframe" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1b/38/d7f80fd13e6582fb8e0df8c9a653dcc02b03ca34f4d72f34869298c5baf8/h2-4.2.0.tar.gz", hash = "sha256:c8a52129695e88b1a0578d8d2cc6842bbd79128ac685463b887ee278126ad01f", size = 2150682 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d0/9e/984486f2d0a0bd2b024bf4bc1c62688fcafa9e61991f041fb0e2def4a982/h2-4.2.0-py3-none-any.whl", hash = "sha256:479a53ad425bb29af087f3458a61d30780bc818e4ebcf01f0b536ba916462ed0", size = 60957 },
+]
+
+[[package]]
+name = "hpack"
+version = "4.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2c/48/71de9ed269fdae9c8057e5a4c0aa7402e8bb16f2c6e90b3aa53327b113f8/hpack-4.1.0.tar.gz", hash = "sha256:ec5eca154f7056aa06f196a557655c5b009b382873ac8d1e66e79e87535f1dca", size = 51276 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/c6/80c95b1b2b94682a72cbdbfb85b81ae2daffa4291fbfa1b1464502ede10d/hpack-4.1.0-py3-none-any.whl", hash = "sha256:157ac792668d995c657d93111f46b4535ed114f0c9c8d672271bbec7eae1b496", size = 34357 },
+]
+
+[[package]]
 name = "httpcore"
 version = "1.0.9"
 source = { registry = "https://pypi.org/simple" }
@@ -666,6 +688,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz", hash = "sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc", size = 141406 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl", hash = "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad", size = 73517 },
+]
+
+[package.optional-dependencies]
+http2 = [
+    { name = "h2" },
+]
+
+[[package]]
+name = "hyperframe"
+version = "6.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/02/e7/94f8232d4a74cc99514c13a9f995811485a6903d48e5d952771ef6322e30/hyperframe-6.1.0.tar.gz", hash = "sha256:f630908a00854a7adeabd6382b43923a4c4cd4b821fcb527e6ab9e15382a3b08", size = 26566 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/48/30/47d0bf6072f7252e6521f3447ccfa40b421b6824517f82854703d0f5a98b/hyperframe-6.1.0-py3-none-any.whl", hash = "sha256:b03380493a519fce58ea5af42e4a42317bf9bd425596f7a0835ffce80f1a42e5", size = 13007 },
 ]
 
 [[package]]
@@ -1087,6 +1123,135 @@ wheels = [
 ]
 
 [[package]]
+name = "pillow-avif-plugin"
+version = "1.5.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f9/32/a3bfad0537ba6f2accc6a8a2e53e09b266418347f58898f811ca2fb70bd9/pillow_avif_plugin-1.5.2.tar.gz", hash = "sha256:811e0dc8be1e44393d2e3865ec330a8a8a1194b94eb8cfca6fa778e3f476d649", size = 20571 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ad/56/3e0a2f85b8c248db84e01d85980140cab9240823cdfb0e641308fee86d3b/pillow_avif_plugin-1.5.2-cp311-cp311-macosx_10_10_x86_64.whl", hash = "sha256:b523f1958230b967c57dbfb413af590aa6b62de240a22ad9d7fc8a37b1f9ce5a", size = 3946378 },
+    { url = "https://files.pythonhosted.org/packages/f7/2e/195830e64df847096cb35ced7cc775d7989d3af4f1e1314f014e3a115bbf/pillow_avif_plugin-1.5.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:8e328eb07fb1ff91930f3b8e9a630855502ea6f881452e791f2930ca0fcd5c03", size = 2805521 },
+    { url = "https://files.pythonhosted.org/packages/99/b8/3f3d80cb11303fd5f91b6b5778dab74586c6179c933cf624f57a553257c3/pillow_avif_plugin-1.5.2-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:3fe069c09fe2c83c9fdf94302a1f1711873f31eaf6fa2e00f3c1846497caf39a", size = 2991441 },
+    { url = "https://files.pythonhosted.org/packages/97/1b/62a34d6bc0c1dbcd368f7f1aa652f3d4833499b81839feb4d20a0c3e50df/pillow_avif_plugin-1.5.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1d981ab9e5237b5672b8a8bba5e7f7f27069474d53ce2036af935ec2f4ee4d16", size = 6365424 },
+    { url = "https://files.pythonhosted.org/packages/c8/0c/408d3caeec218bfb1ff77a0d2360a1a4c3e6c56dde10b7afe4d3639662d4/pillow_avif_plugin-1.5.2-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:117ba8958750e9e3c3d0faa1fd1bb3a310548c6128ed29af31c089d73aded929", size = 3003898 },
+    { url = "https://files.pythonhosted.org/packages/0c/b7/dc9baeb58a9e9f37cd1ddae97727dfa2b04524242fbd99da711902bc8377/pillow_avif_plugin-1.5.2-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:70be3bcb50604f36cb86e82d76c2b452f8f25b7806d9d27195e547e5ea40ed7f", size = 4173643 },
+    { url = "https://files.pythonhosted.org/packages/71/84/5b634362f72497370ae66ca2bf73c688c292b18af3c0911c1e24799da431/pillow_avif_plugin-1.5.2-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:068c8d985464f53b4cdf136e529be65b592486e475c775042be50966c091dfe9", size = 3101321 },
+    { url = "https://files.pythonhosted.org/packages/a2/57/47125b13871c51708bf3c0b3972c2c910ef42cc5c8c6e8f76a63162e2336/pillow_avif_plugin-1.5.2-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:b943133b7b92f9b5f2f4cae8d8da40cf99c170e60aee119c9746baf79462c614", size = 4195397 },
+    { url = "https://files.pythonhosted.org/packages/a6/74/bd1e17958e07e0b2ca7c1bc845dbd944b484b4d5f2116b1d109940239b43/pillow_avif_plugin-1.5.2-cp311-cp311-win_amd64.whl", hash = "sha256:92637128e5a129562d7ecb64c0b5b7e35090ecee6097eaf5f46cac0c29c4e53a", size = 9857422 },
+    { url = "https://files.pythonhosted.org/packages/df/75/0ee9a2a55142183fd881d912bae912df36cf8fe84ba3be92c4530558732f/pillow_avif_plugin-1.5.2-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:0ec28185f536857965be2156e13231274d58a154504db3da4dcda772e391cf5f", size = 3900276 },
+    { url = "https://files.pythonhosted.org/packages/8c/7e/f28e53b8c9e31e015c8923ff3dca4c577e38013d4dd5fb005182cd4631a8/pillow_avif_plugin-1.5.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:e36b3cbf5e61b15d2fa213508cf348251e7830ebeff1d97e4e18c55cc0c3b784", size = 2805833 },
+    { url = "https://files.pythonhosted.org/packages/6e/f8/3bf477c4d32470819f10c1163c79f3e0a14c9c3f3ffd20d2d051a6a1dd9b/pillow_avif_plugin-1.5.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c8098ceed3f76c38b61a35221f0db0205d81d06ff87f4ec11175c90bc66f8c1d", size = 2991435 },
+    { url = "https://files.pythonhosted.org/packages/ea/e3/c08f2346d04f0969fec9a6751af8c23dfffd02a55ca91715cb3ee86b53be/pillow_avif_plugin-1.5.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2075069ba6c00236cf7aed66c15863e9ea44b280c20e270aa6f56173b7a380c3", size = 6365698 },
+    { url = "https://files.pythonhosted.org/packages/90/96/7676079b7305a6cc31f284c7036c33f5131886fdc074f204b3b3cdef1886/pillow_avif_plugin-1.5.2-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:db7d4fc23d8f80ef4f9fdac8e0071856c4c8b9acfc3c4d5cb125d5299d6130b2", size = 3003962 },
+    { url = "https://files.pythonhosted.org/packages/3f/34/058a6e5e0794e2fa6e012a350097b989fb0aa9ecc704e9da2cafddbb7a22/pillow_avif_plugin-1.5.2-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:8174501ed895508d5801d61fa9518252693125688dadac7fba79612f9bba623a", size = 4173892 },
+    { url = "https://files.pythonhosted.org/packages/cc/52/054bd0c363a5ff6e35d0e763c75cc64eb2408d19a7de34fc6448cdf57fbc/pillow_avif_plugin-1.5.2-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:25eeb443636a1c7f0bd0a6994436ad44de09e87648574a797cbd8620b8dcb52d", size = 3101308 },
+    { url = "https://files.pythonhosted.org/packages/33/83/508f425b4e5e42e6c165b819b4953c482f05b38bc18958b1e11c3bfa7ebb/pillow_avif_plugin-1.5.2-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:5004a099d52a9a23dfa5b19382a48c0f0930de6231deb013222867fea8948712", size = 4195525 },
+    { url = "https://files.pythonhosted.org/packages/64/01/0f9cbc4fbb7345790379fb5321776150043d6b6e5674a196a4ba552b570c/pillow_avif_plugin-1.5.2-cp312-cp312-win_amd64.whl", hash = "sha256:0bc8cec59b5d9c2020cdc6d218081b4d7b0dd60270a24f9174d6b91438a3aa5a", size = 9857569 },
+    { url = "https://files.pythonhosted.org/packages/f8/6a/7a03fd17fe33f07025776d77ee59a67007854a477da89c4d68ab2d8bcc77/pillow_avif_plugin-1.5.2-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:5be8435d2ebf0972f6c2ef69d8869e5875f5cd77c69c9606e0145595b81f7790", size = 3900271 },
+    { url = "https://files.pythonhosted.org/packages/6c/10/e4daa1c0ad14492724305b4786bad560b8ffd5643e4817d6684f463b7cf0/pillow_avif_plugin-1.5.2-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:d2e571b845da4ea4fc16d647e64656bc754840a10ad5ef9fd020d389ea664c9d", size = 2805824 },
+    { url = "https://files.pythonhosted.org/packages/58/34/5443fe48d8923c35742e5b11e0ecd2378e4275d6310b6bf7c1533e24cafc/pillow_avif_plugin-1.5.2-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:35d61a9b586793c93e439b9181c201bc34c67cc4817f8f5625b8df37f0a25efe", size = 2991320 },
+    { url = "https://files.pythonhosted.org/packages/93/9f/a85b96e545a7306743eebae6216a9f5af4869ffa40fd285adead78ebed50/pillow_avif_plugin-1.5.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:84fce3d0ef7b5c8ecf5a1a29da487c824b93bf33680de31829e8179bd4511548", size = 6365646 },
+    { url = "https://files.pythonhosted.org/packages/ec/7e/126fce54561f11d3d4d9ad21a4a14eab2a2cf08ee8668253005c551a15ca/pillow_avif_plugin-1.5.2-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:e0ac45d820bcb895d0667d18a61bf0c940ea4659fcbe991d7ce767ec062c175c", size = 3003952 },
+    { url = "https://files.pythonhosted.org/packages/f4/62/a7b296c207ff702dcab8508c65c3c0b3a72f61b1967df9a4273cbe68dc76/pillow_avif_plugin-1.5.2-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:8b0c86ade32600b832f2323409239fadd46d17a05380d11836e7fc24e54c170a", size = 4173898 },
+    { url = "https://files.pythonhosted.org/packages/8f/de/6405c66ce3d3af44b5e0091f26321eb09d8ec75cab4d3d843a316c1686cd/pillow_avif_plugin-1.5.2-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:d639ef381496e0306e43cccd9bf384e0eccba979b6758c2aa4986fb25b920cab", size = 3101313 },
+    { url = "https://files.pythonhosted.org/packages/8a/de/bee7bd4539d45df2328fb5c52326b72770471aa3441c8b6d91b33e54f7c3/pillow_avif_plugin-1.5.2-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:3b168757ee646a0b53f58da978b73dc1c5f98da9d36b52908055d54d0a48c845", size = 4195538 },
+    { url = "https://files.pythonhosted.org/packages/4d/40/f11c63a815bae18b4792df5435e61351d90cc4795da5cb4e19b1d4bf532e/pillow_avif_plugin-1.5.2-cp313-cp313-win_amd64.whl", hash = "sha256:b840a431dbb04f60a18bbd2e28c2b26d845efcddd28f98e9386eb5a5938a3b38", size = 9867834 },
+    { url = "https://files.pythonhosted.org/packages/f5/ce/36c401834c477fb3034dee6962adacc368f944d72b96f298a2e4787ae44d/pillow_avif_plugin-1.5.2-cp313-cp313t-macosx_10_13_x86_64.whl", hash = "sha256:4fb6744377634b28b0ed54fd12a1e6fa6cf09633dc7608958595d2659e1186a8", size = 3900637 },
+    { url = "https://files.pythonhosted.org/packages/57/e1/faacc26a8da3b1a965860affcc107bc555929bf96a9e7810815aa09ab17f/pillow_avif_plugin-1.5.2-cp313-cp313t-macosx_11_0_arm64.whl", hash = "sha256:ea00363749cd6c359c054b920fef0cd1f4864af7920c86886339128d704298a3", size = 2806181 },
+    { url = "https://files.pythonhosted.org/packages/e4/7f/4d92ec39a00308c81b101ad3c8a948aaa3f24d03246e74d68361975f8231/pillow_avif_plugin-1.5.2-cp313-cp313t-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f4b36cce231d6e0fa09972a1558eac18e94a29d83342129488f0a1fcb4509cb8", size = 2996403 },
+    { url = "https://files.pythonhosted.org/packages/b9/24/a5299390c810daa51932a7c8ba00e14e005199e7fe2474f6701a3890079b/pillow_avif_plugin-1.5.2-cp313-cp313t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4053ec0a6767229703d05fd4d47c39b92b6044e14489ed8e79f485c8d96a9ad3", size = 6369881 },
+    { url = "https://files.pythonhosted.org/packages/53/d7/8ffb730e2321d6493f2facc5e50d4e1364e45ed7315fc711e99ac98ddbd1/pillow_avif_plugin-1.5.2-cp313-cp313t-manylinux_2_28_aarch64.whl", hash = "sha256:6830b27e41669b9008dc4d9d69f3d66d2ee3d26367b4aa59c229cc5ffc702748", size = 3009137 },
+    { url = "https://files.pythonhosted.org/packages/8d/df/3df3c4dcb1b30759e27591182afc8ed7533c87591be685fa3fc5ca32bd68/pillow_avif_plugin-1.5.2-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:cf0e32a6a6635de41aabc196a7d888431553e78aae51e25d6602d384ef91be8b", size = 4178359 },
+    { url = "https://files.pythonhosted.org/packages/36/94/25659c3bc8ae80e856ac012842186200a3a00fb99214dab8ee8049244425/pillow_avif_plugin-1.5.2-cp313-cp313t-musllinux_1_2_aarch64.whl", hash = "sha256:bc6bb9a7103b57dcfdea910330323d330220c2e89d71f8182f1dff773f10a12d", size = 3106107 },
+    { url = "https://files.pythonhosted.org/packages/e9/3a/84bebb05143c7715760c9e51c9a7a579106334167c41f4d6aebfb2966042/pillow_avif_plugin-1.5.2-cp313-cp313t-musllinux_1_2_x86_64.whl", hash = "sha256:b54e18be1cf28bacf4da3c132fcf9ae9ff7b5dd6c8f5576dd66f0a099b0d1f7a", size = 4199692 },
+    { url = "https://files.pythonhosted.org/packages/ca/df/93748424d89bddff2192cf82f34b497dbf73ac2ffd022a481ee74e0aeae8/pillow_avif_plugin-1.5.2-cp313-cp313t-win_amd64.whl", hash = "sha256:981b3205d8389f88e7fccacb25f2c75668a371b8346771cc36bd35cae05560dd", size = 9868519 },
+]
+
+[[package]]
+name = "pillow-heif"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pillow" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/87/c4/cd02132eb24aab8dc50ad16b04c8761024cc77af6dfb6ddfc51ea828e9a8/pillow_heif-1.0.0.tar.gz", hash = "sha256:0df7a1fb29bd55bc77fd286195eeb02604e356a5da3d5e8786129b91263b99e2", size = 18270881 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8d/7e/e92be35856df245876af199372ddca9fb19b580daec17ea52a1f27048463/pillow_heif-1.0.0-cp311-cp311-macosx_13_0_x86_64.whl", hash = "sha256:812bb192e98a1eb0f037cddccd6c95930e3b6ff00951c67f4623c2ab085d8938", size = 3291303 },
+    { url = "https://files.pythonhosted.org/packages/7b/88/01e8f6b9e3fc13dada147145e9c04d2a5841712f54ca682e6d30d2fca495/pillow_heif-1.0.0-cp311-cp311-macosx_14_0_arm64.whl", hash = "sha256:0beb5a4d8ebdcc4bfd35c911cf0b2537ef1a6a145f4cf8a5468b1531fea9e89c", size = 2177553 },
+    { url = "https://files.pythonhosted.org/packages/85/12/a29a3ae0a0c31ccc0e17814532193a4fc109ff4229a9b1490627f9ba7418/pillow_heif-1.0.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:560b7d6d265dc256ced56c9758de0efe927125d3132cc49e88328116d163823b", size = 4278501 },
+    { url = "https://files.pythonhosted.org/packages/40/fe/8129218f86cecb194feeeeb61912db9ce16c448151e7922a57b94bf50ecd/pillow_heif-1.0.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:60ce73485154c7334d884f77cd4120b91b3daef4abdfd91970ebddcde955a9bb", size = 4871219 },
+    { url = "https://files.pythonhosted.org/packages/0d/f1/4bc06678e09d18007a769f3f56c762266395c7663254b4543e4a6b671968/pillow_heif-1.0.0-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:97ea05e4e71f70ec05ebea6a185e0fb3aaf31f081f452e3061f3aa237f52165a", size = 5745908 },
+    { url = "https://files.pythonhosted.org/packages/42/18/364090fc0f9389f304160c6fcfa3050f9e927ca07c95353e627d1c45fcbf/pillow_heif-1.0.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:a9cd71162046488e6f98507436cd8e7f85202a858adfce7b296b461eeb1e5b06", size = 6107656 },
+    { url = "https://files.pythonhosted.org/packages/4a/52/3751aa9bc4e1c242ad73d244bf87804486d4b89004f2dc8aa4994a5fefe1/pillow_heif-1.0.0-cp311-cp311-win_amd64.whl", hash = "sha256:ffd8307e9fc4ad3cd998ffdf18eb15c1a1ccafffb5ac4d6a213368e4af7a4b39", size = 5288966 },
+    { url = "https://files.pythonhosted.org/packages/98/51/f3f1c4b1777b378354ab1bc1ec158045c835a585db2fd83c81e4dfdb5835/pillow_heif-1.0.0-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:4217447e61df85d847718ecf4054d4292b691eee74fa565f0b650da1dc357f34", size = 3291525 },
+    { url = "https://files.pythonhosted.org/packages/52/6a/349eb3f48cbd820d8711d1c18eb128c96fb46b8eb7ee254c9bca10e8ca14/pillow_heif-1.0.0-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:425b1aac012fc59fc703cdce05ac125ffa2970ec9839bb8d763d8645eb59308c", size = 2177556 },
+    { url = "https://files.pythonhosted.org/packages/19/42/1472e6c7b80796a2f02e75bfca7e02615aea24aaacd11bad60206d96b99e/pillow_heif-1.0.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:1ec85dfc7db7b34944e7a4c885a7d72fb470d532bb696c490445954a50db7241", size = 4276817 },
+    { url = "https://files.pythonhosted.org/packages/7d/5d/6c672ff4d9ad7c6305690b2ed8763826951e96bc615803475ef2d47ae0e3/pillow_heif-1.0.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:71fa395744c53a3b4ceb2fbf29b63e556c64591038472600af9e368940f930c0", size = 4870199 },
+    { url = "https://files.pythonhosted.org/packages/ce/b2/cecc54f9b1b00c5214ddb5e7cc0d514afb05482727d72fba76540062d9d4/pillow_heif-1.0.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:9691125b30d352b2817a544d3155f6a5911378d08901ee4b71ba3e4305fa32a0", size = 5744675 },
+    { url = "https://files.pythonhosted.org/packages/14/2a/94a9e48f4fe009d75ba73a9df673fcb8ae6cad71f5131a278d811540e376/pillow_heif-1.0.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:3ca0e829e6c6986a3acc33efb9e762439b84f0ecc8e583204f04ad8001b192bf", size = 6107015 },
+    { url = "https://files.pythonhosted.org/packages/7c/fa/fdde595db199796fb27029264888c0a450283a6e454d830a5d5e0e781650/pillow_heif-1.0.0-cp312-cp312-win_amd64.whl", hash = "sha256:0f0b8546fe98f0938cb6afd1127f2b7a855f4a657e31dcebedaee97ba5662da9", size = 5288994 },
+    { url = "https://files.pythonhosted.org/packages/68/55/bdd4df3701366eef8dbad1623b400e41ff84e03dff9f69b356031ced63ee/pillow_heif-1.0.0-cp313-cp313-macosx_13_0_x86_64.whl", hash = "sha256:6a7b14de333709ef9fdd4de57bda3103eb3178b6ed267f9e60bfd64bfb7c5c41", size = 3291528 },
+    { url = "https://files.pythonhosted.org/packages/1d/79/355393eb2e011fa14fbf3fcdee4ebe7c1c9460161da474917e9a1e6fd4b3/pillow_heif-1.0.0-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:07fba7ffbcc7841cc4e5a3bd781628ef6a2359c633d28fcd14ad490b09060bb3", size = 2177554 },
+    { url = "https://files.pythonhosted.org/packages/e2/ba/fea00ac98220c99fa770aaedc087b233ecbf77af916a59ed43c5ff02f96f/pillow_heif-1.0.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c0ab4c56637c2b332e15383a14ee1b493fbbc5dbc756a0b372b7c23df1ed281a", size = 4276786 },
+    { url = "https://files.pythonhosted.org/packages/fe/25/881ebe8ad355770011ddebd5bd702dcbf62acba7213286dbbf03ea99886c/pillow_heif-1.0.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:809e4fd18bf1f683788d71449ae0ed7522e16c4a892a040ec64cf97377e6efd5", size = 4870144 },
+    { url = "https://files.pythonhosted.org/packages/34/ca/5d3e7ef7688bcdb5f7c9eb4edbf9f97a54b1bd592f44c0fe4ed2776e1189/pillow_heif-1.0.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:6d928a5e9f1cfa9e300695329bf9db08e01bcb14b14c4e6a48d6c032bf9dfa1c", size = 5744730 },
+    { url = "https://files.pythonhosted.org/packages/8b/28/75958d05519dd737da816813bb2f4e5a8dc26081af743d24a787cc3f534a/pillow_heif-1.0.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:f02906fd84688138bcbdbbd75fbef77356043bc6199516a152cc66811d1b7198", size = 6107041 },
+    { url = "https://files.pythonhosted.org/packages/49/9f/c74044f3d531f1c89484ecb5a85f0d16149bd8434637269a2261909d74bf/pillow_heif-1.0.0-cp313-cp313-win_amd64.whl", hash = "sha256:864a01279069fcd1d99ac0c8ad3263c478438eb9adaa084a2f3d2278049b308f", size = 5288983 },
+    { url = "https://files.pythonhosted.org/packages/08/31/58a125e23bccf805de5d8e15014eb78eab5aa97b7b2e0b81574ba2882dca/pillow_heif-1.0.0-pp311-pypy311_pp73-macosx_13_0_x86_64.whl", hash = "sha256:6df834a4fe4f5cb0c2641996f323ac0354a2c1133aee494e649848bbeb093bbb", size = 3280074 },
+    { url = "https://files.pythonhosted.org/packages/7c/13/9d6121744c075f9c15f17efe971b199d37b187c2afca9a80fd7dc2419468/pillow_heif-1.0.0-pp311-pypy311_pp73-macosx_14_0_arm64.whl", hash = "sha256:f9c17066adc84820d465ce51ce0e8448e1074886ff765b6c07b81802eba0a0dd", size = 2174115 },
+    { url = "https://files.pythonhosted.org/packages/a5/8f/1eb419221a0d94114bc12e6afc56a4b70144f4f16058b2ad9f7a5a6affb5/pillow_heif-1.0.0-pp311-pypy311_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9c10eb674f94f8a7f449c2a0b32530fa34bd6c78a6717be8a0068e591c73b6fb", size = 4235633 },
+    { url = "https://files.pythonhosted.org/packages/fa/8f/c37b15df8a54fbba55973d5d1985924bc99ece72bb9edcdcec7a0cf8b707/pillow_heif-1.0.0-pp311-pypy311_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:62c6db1706367d6cf7fb04ad6074ab88f3863dde73cc14feeddb7c6a396d0c88", size = 4826268 },
+    { url = "https://files.pythonhosted.org/packages/3a/30/721413f9cecc8529df0655acc4e2e4e88987b74f8048cfa85a00850a358d/pillow_heif-1.0.0-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:2c6486b9026d776e0dea264db3aa2f9aa6304aa1335f9a96f9b32aca1ce16cbc", size = 5289386 },
+]
+
+[[package]]
+name = "pillow-jxl-plugin"
+version = "1.3.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+    { name = "pillow" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0a/0e/77af926bdf99bac7f1decdca8102b13945a2e2aa9c716ce617e36bcd82d3/pillow_jxl_plugin-1.3.4.tar.gz", hash = "sha256:8ea589fc559ea7c5dfccb42af4d8148f5db508f5f4d4518328bab5a31fcb268e", size = 1586219 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e1/65/63819d69fb039631830b74704571d7415673a6059c2165599d680246dedb/pillow_jxl_plugin-1.3.4-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:851d19e238c674e3bb62d8dd2226e8e860051bf2d2b7c7ab31908f5521c2ec4a", size = 2211859 },
+    { url = "https://files.pythonhosted.org/packages/07/35/035dc103e0cc00fb3cdd9389a21b0b84a2076a41590a46a096ccab0275e1/pillow_jxl_plugin-1.3.4-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:93aa4105e577686eab1adf6586f379f508ea189bda460c3a6cbb728e72b5e182", size = 1605287 },
+    { url = "https://files.pythonhosted.org/packages/e9/ce/cd233603366873ad7913fe0b01c2a2feb96029234bd0e597277c9c93d102/pillow_jxl_plugin-1.3.4-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c40a4ff0936fa35e235d2661c00c85ec8aabb4e2b24c4898a1fd64e41a899930", size = 2054069 },
+    { url = "https://files.pythonhosted.org/packages/d3/3e/a2628e1a0de6dcbb3f8c163d5b2ab99d120f642a386bc5ca04660ad1aeb6/pillow_jxl_plugin-1.3.4-cp311-cp311-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:2de1df437c13172047c9f930f695eee9c3b4957b3a5294b4a19590f19e86e372", size = 2413353 },
+    { url = "https://files.pythonhosted.org/packages/1e/66/ceb806efa1a07713d543ad08041987530f5d7792f46e792f4acfa9ce1d08/pillow_jxl_plugin-1.3.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2e18e5c6026d5a8f35b17178bbe09253e9c8b63fe1bc31af81ee43f1e4af8a45", size = 2501455 },
+    { url = "https://files.pythonhosted.org/packages/3b/fa/d69fa1f8c580ff57f41699bb7d40ec2fa84e61e9dbe2c603ef3fd9fa15e6/pillow_jxl_plugin-1.3.4-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:07fd83a4ef75885e4428f8972498f246715e4f0683397e67a26ca10f86f05e14", size = 8115860 },
+    { url = "https://files.pythonhosted.org/packages/a6/76/b9a7dea268253264443f58689f1a89025a70fe48265b1c33132a23c77813/pillow_jxl_plugin-1.3.4-cp311-cp311-musllinux_1_2_armv7l.whl", hash = "sha256:692f866b026593f5757c74d4034b308af55d1cc3bf66fe0ef74da80218c5407d", size = 8012629 },
+    { url = "https://files.pythonhosted.org/packages/d3/0d/a839c5a9a60b5c89e74ecad88aaceb489a3dc1214abb5c61999d60942bf6/pillow_jxl_plugin-1.3.4-cp311-cp311-musllinux_1_2_i686.whl", hash = "sha256:10154894e3241574367a4b2f3b2dd238a635c21cdfd64caa0a474d9d479de3bc", size = 8592862 },
+    { url = "https://files.pythonhosted.org/packages/d3/fd/649caf31491b315fce78e22347d0af8810296fa75574cd7160dcdf144903/pillow_jxl_plugin-1.3.4-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:739a5556419bca05533feab366b64872eb73b1d3d0711944744b75459d8aaf00", size = 8810524 },
+    { url = "https://files.pythonhosted.org/packages/09/3b/5ef6898bb357abcaf1ee0e0f7d66f7e3b412c0b32b4f268ac7135464ec71/pillow_jxl_plugin-1.3.4-cp311-cp311-win32.whl", hash = "sha256:bfe900c70524042192a709569d1601b0277b90a14315accc00073123e7ccb81e", size = 3047069 },
+    { url = "https://files.pythonhosted.org/packages/4c/42/53d87e9974a52ee4cc443caa72c62f32bbd426f4a28ea86caac6fa5f06a6/pillow_jxl_plugin-1.3.4-cp311-cp311-win_amd64.whl", hash = "sha256:0cd3db47614cb93a6ee14ebddcdeff8b0e07e48bfa524ddb444b1cd78fab6904", size = 4227664 },
+    { url = "https://files.pythonhosted.org/packages/62/c1/1e852a18377aba857a40fb9f6511d24ddd22943b2b7d8433eef5cc504b48/pillow_jxl_plugin-1.3.4-cp311-cp311-win_arm64.whl", hash = "sha256:9e3defb617e9213c981b5b288fe669ded760caaad3afa60cf674e3f0d658cd98", size = 2175208 },
+    { url = "https://files.pythonhosted.org/packages/45/15/814cbc4a371f7c85c41cc14feeebb025034e008789698e39433b1797d0f5/pillow_jxl_plugin-1.3.4-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:808ae91ee24e18ded16c6f6f646248f9a5ae04065251fc1003e72d0e357963ba", size = 2209189 },
+    { url = "https://files.pythonhosted.org/packages/a9/e4/e44f17cd5c01b3ac06b5add039d24eb4336dc4a3d56595d70816a5b3dc12/pillow_jxl_plugin-1.3.4-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:5c67729f5a7eaa3b15f6d77bc2e927ad123924ccc73e0afbddd2ed5dd2fe6ecd", size = 1603537 },
+    { url = "https://files.pythonhosted.org/packages/45/0b/7478a4fb27bf61324e8f71407896b9af161dc498cb42d3eaa5f4020a7907/pillow_jxl_plugin-1.3.4-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5cc5eef69dec8494ca37805412152d6b458faa926b183088ade89b22ef62af28", size = 2054200 },
+    { url = "https://files.pythonhosted.org/packages/f1/1a/b5fe5ed197ef1b80ea879df9c9dc97b358bb0cca38f7d1937548b24e030d/pillow_jxl_plugin-1.3.4-cp312-cp312-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:ddc68375bbb89af2e377f5f5952b2750f0a4aaa06eda711ef7233f593fbc9b10", size = 2412776 },
+    { url = "https://files.pythonhosted.org/packages/48/ba/9eaafa6446859bc4a60fc1b0de4447fa6fd0e705d4a915b5a8035b75ec63/pillow_jxl_plugin-1.3.4-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:11b33c91e866b65b2dcdd267811a65feab5395037cbb2dc5837b3826465749db", size = 2501031 },
+    { url = "https://files.pythonhosted.org/packages/b7/ee/000e9e4b98b4dae4a2998dc50fb4e16959fe30e77e923e1a1dbe45a6f1e0/pillow_jxl_plugin-1.3.4-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:fd2b15e7d610d0b18a4545ca194881c74c35aae766f1df637f174f9b8c24a36c", size = 8115115 },
+    { url = "https://files.pythonhosted.org/packages/27/31/e8937057ac4ce569f4f645178bc596960e8d219499e0e5496b4fd4d25d4e/pillow_jxl_plugin-1.3.4-cp312-cp312-musllinux_1_2_armv7l.whl", hash = "sha256:496137d2d990bc206c542163318dddd05eb8b9e0a39a82f9d29e3b9f7c818252", size = 8012088 },
+    { url = "https://files.pythonhosted.org/packages/94/6e/e4aee65a69c1215f23552bfa1aefdcf373e7e6c39715bd6e3797d05498e3/pillow_jxl_plugin-1.3.4-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:445b788235c09857028b491fa396b5319941a1dbed2ea1ec3b457dde349b1f10", size = 8592283 },
+    { url = "https://files.pythonhosted.org/packages/30/05/0e32bb4823db1a2593ba6a3294dd3923d1d17ae715b6f952ab159697c1f3/pillow_jxl_plugin-1.3.4-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:99a4295df94b886fc6e373b75be96c8e3017c6264e1d81f43597ec04836b01a1", size = 8809487 },
+    { url = "https://files.pythonhosted.org/packages/59/eb/50e2f03d29a68b7c5bebc0d646e21da93213b51488ffbbc54aa58f1cea3b/pillow_jxl_plugin-1.3.4-cp312-cp312-win32.whl", hash = "sha256:43a3e1b6fa0eec29b20294fecefb0b5a183fa5b2d2f09c76661917e70957cdd8", size = 3046210 },
+    { url = "https://files.pythonhosted.org/packages/ef/83/65aeab4613663d8074ba9b2c58809ec128ec3b92ca1176c9ee53d70d2594/pillow_jxl_plugin-1.3.4-cp312-cp312-win_amd64.whl", hash = "sha256:ab181661d843e78534ab7406de1272fd1782c735dcbc93d89218578d87ac3270", size = 4226191 },
+    { url = "https://files.pythonhosted.org/packages/b0/4a/9abf033ae359c6acac16e2875e7f2b867e56ea7c35ce8dd40ff6de5788b3/pillow_jxl_plugin-1.3.4-cp312-cp312-win_arm64.whl", hash = "sha256:5db7a8ddad281b6314e70b53e871414cdb6d51ba4b9373028edb8d190f4b37f1", size = 2174386 },
+    { url = "https://files.pythonhosted.org/packages/d2/ad/405d3ca812557c4855e15d9eb3c9c35500aaef6673603f4a3f5145c4ed80/pillow_jxl_plugin-1.3.4-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:9e8da4f7750684f3e1c30ae75d7f23f137503787115373c11e5274af459f3e42", size = 2208559 },
+    { url = "https://files.pythonhosted.org/packages/93/18/be1e4423f1dc3a2cf0c9cd188449a024bc29a6e9846356929c6cf47c8df0/pillow_jxl_plugin-1.3.4-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:065d4e9a9060259d566f71c3e2a21723942fb03883c5f70235d8d67f7302cfc6", size = 1603075 },
+    { url = "https://files.pythonhosted.org/packages/10/5c/af372084cdbc36e5bc0b2240174e7b2d932538fdfee9b9f5098aca6d1fb0/pillow_jxl_plugin-1.3.4-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:802444a79850ee2d04a433e720c6d53832d2c758a95e80a7726e6ac20d14956e", size = 2053438 },
+    { url = "https://files.pythonhosted.org/packages/ba/c9/ad74fd31476fab1dc6d400b047e28d9e7b8a7ecf2cf98cfc7ee2718890ad/pillow_jxl_plugin-1.3.4-cp313-cp313-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:abf586f7aef11c1a045b39e3aebfeb5947d6de72dfd9612c178a360c164b25d5", size = 2411806 },
+    { url = "https://files.pythonhosted.org/packages/2d/1a/e9926e352cc39f29a1da050f7798d38f7c04b6017357dffb32db27561af8/pillow_jxl_plugin-1.3.4-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:455b3d14f8ee8e9fc40d6e986b5b485a4d8d2ddfc1778f2af09a72d1ee13ce31", size = 2500493 },
+    { url = "https://files.pythonhosted.org/packages/ab/e4/8cdd7b4251d53c81f9e453ea06b524f74a7208f8bcfad6eecec48f8a6fef/pillow_jxl_plugin-1.3.4-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:fcb8017f4cd11628585074729b969b09a021814cff2842518db6e6f8a0f3bdb1", size = 8115031 },
+    { url = "https://files.pythonhosted.org/packages/04/9c/9646dabdef692dd596c319221c1626ee91bdf89d7ddafd52ba0d3fd4acf5/pillow_jxl_plugin-1.3.4-cp313-cp313-musllinux_1_2_armv7l.whl", hash = "sha256:dc82b63d046185c15cf9ed9accdff59dabd42a5a0abf0c395a5ebe583114a5ee", size = 8011151 },
+    { url = "https://files.pythonhosted.org/packages/b7/3c/d20ca7b7d55f619af240f3afcf0fe9d000b923f7fb50fd965767ad765a86/pillow_jxl_plugin-1.3.4-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:2a4c6f06d3973262008ba4fa5258f4005be87b88e50cb825e4fd430391c9dabe", size = 8591410 },
+    { url = "https://files.pythonhosted.org/packages/c7/cf/f394f13cfd92e43ee914ab1c084eb70740e8c44628f79ccba1d5d8bbc6ad/pillow_jxl_plugin-1.3.4-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:2c74c10acd9f253185bb1b20a3d4531a57e31bbd8fd91e07081ee4c4bef0a8e6", size = 8809184 },
+    { url = "https://files.pythonhosted.org/packages/f6/57/a993587f94edb599b12184a212c85fced74ba90a2005fe2c8001ab4283d6/pillow_jxl_plugin-1.3.4-cp313-cp313-win32.whl", hash = "sha256:bd4920e1aad87d8fc2c5cb1019e14b81f2c828a93651b551b255aa2e8da61247", size = 3046023 },
+    { url = "https://files.pythonhosted.org/packages/cd/a9/6d70b17ec20789424d5c9c693c8a917503a45519f20e0f66d54b37e24cda/pillow_jxl_plugin-1.3.4-cp313-cp313-win_amd64.whl", hash = "sha256:492c41232616f2a2efae18bf3fd0e20312019af649f7372c583dd4f5bbffe914", size = 4225110 },
+    { url = "https://files.pythonhosted.org/packages/d0/74/3852943352f761e6ff9cb55e92f3d399c938fad57435bcca68e9815a1014/pillow_jxl_plugin-1.3.4-cp313-cp313-win_arm64.whl", hash = "sha256:c140e7520d0e88ffabc3af166ce22d2bff1f507f8692918791d675f9accb40b7", size = 2173676 },
+]
+
+[[package]]
 name = "pluggy"
 version = "1.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1464,6 +1629,8 @@ dependencies = [
     { name = "flask-limiter" },
     { name = "flask-sqlalchemy" },
     { name = "gunicorn" },
+    { name = "h2" },
+    { name = "httpx", extra = ["http2"] },
     { name = "line-bot-sdk" },
     { name = "openai" },
     { name = "pillow" },
@@ -1478,6 +1645,11 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+image-formats = [
+    { name = "pillow-avif-plugin" },
+    { name = "pillow-heif" },
+    { name = "pillow-jxl-plugin" },
+]
 test = [
     { name = "httpx" },
     { name = "pytest" },
@@ -1504,10 +1676,15 @@ requires-dist = [
     { name = "flask-limiter", specifier = ">=3.12" },
     { name = "flask-sqlalchemy", specifier = ">=3.1.1" },
     { name = "gunicorn", specifier = ">=23.0.0" },
+    { name = "h2", specifier = ">=4.2.0" },
     { name = "httpx", marker = "extra == 'test'", specifier = ">=0.24.0" },
+    { name = "httpx", extras = ["http2"], specifier = ">=0.28.1" },
     { name = "line-bot-sdk", specifier = ">=3.17.1" },
     { name = "openai", specifier = ">=1.97.1" },
     { name = "pillow", specifier = ">=10.0.0" },
+    { name = "pillow-avif-plugin", marker = "extra == 'image-formats'", specifier = ">=0.3.0" },
+    { name = "pillow-heif", marker = "extra == 'image-formats'", specifier = ">=0.18.0" },
+    { name = "pillow-jxl-plugin", marker = "extra == 'image-formats'", specifier = ">=0.2.0" },
     { name = "psutil", specifier = ">=6.1.1" },
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
     { name = "pytest", specifier = ">=8.4.1" },

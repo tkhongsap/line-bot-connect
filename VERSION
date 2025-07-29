@@ -1,0 +1,7 @@
+1.2.0
+# Version 1.2.0 - Image Processing Fix
+# - Fixed type errors in connection pool retry logic
+# - Added HEIC/HEIF support for Samsung screenshots
+# - Enhanced error handling for image downloads
+# - Added runtime type safety checks
+# Released: 2025-07-29

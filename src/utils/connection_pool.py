@@ -73,6 +73,9 @@ class ExponentialBackoff:
     
     def get_delay(self, attempt: int) -> float:
         """Calculate delay for the given attempt number."""
+        # Ensure attempt is an integer to prevent type errors
+        attempt = int(attempt) if attempt is not None else 0
+        
         delay = min(self.base_delay * (self.multiplier ** attempt), self.max_delay)
         
         if self.jitter:
@@ -101,7 +104,8 @@ class CircuitBreaker:
         """Execute function with circuit breaker protection."""
         with self._lock:
             if self.state == ConnectionState.CIRCUIT_OPEN:
-                if (datetime.now() - self.last_failure_time).seconds >= self.recovery_timeout:
+                if (self.last_failure_time and 
+                    (datetime.now() - self.last_failure_time).seconds >= self.recovery_timeout):
                     self.state = ConnectionState.DEGRADED
                     logger.info("Circuit breaker entering half-open state")
                 else:
@@ -259,6 +263,9 @@ class HealthMonitor:
         if not backoff:
             backoff = ExponentialBackoff()
         
+        # Ensure max_attempts is an integer to prevent type errors
+        max_attempts = int(max_attempts) if max_attempts is not None else 3
+        
         circuit_breaker = self.circuit_breakers.get(name)
         last_exception = None
         
@@ -271,7 +278,8 @@ class HealthMonitor:
                     
             except Exception as e:
                 last_exception = e
-                logger.warning(f"Attempt {attempt + 1} failed for '{name}': {e}")
+                attempt_num = int(attempt) + 1  # Ensure both are integers
+                logger.warning(f"Attempt {attempt_num} failed for '{name}': {e}")
                 
                 if attempt < max_attempts - 1:  # Don't sleep on last attempt
                     delay = backoff.get_delay(attempt)
@@ -280,7 +288,10 @@ class HealthMonitor:
         
         # All attempts failed
         logger.error(f"All {max_attempts} attempts failed for '{name}'")
-        raise last_exception
+        if last_exception:
+            raise last_exception
+        else:
+            raise ConnectionError(f"All {max_attempts} attempts failed for '{name}'")
 
 
 class OptimizedLineBotApi(LineBotApi):
@@ -298,7 +309,11 @@ class OptimizedLineBotApi(LineBotApi):
             pool_maxsize: Maximum number of connections to pool
             max_retries: Maximum number of retry attempts
         """
-        super().__init__(channel_access_token, endpoint, timeout)
+        # Initialize parent class with basic parameters
+        super().__init__(channel_access_token, endpoint)
+        
+        # Store timeout for later use
+        self.timeout = timeout
         
         # Configure retry strategy
         retry_strategy = Retry(
@@ -621,14 +636,21 @@ class ConnectionPoolManager:
         }
         default_config.update(kwargs)
         
-        line_bot_api = OptimizedLineBotApi(channel_access_token, **default_config)
-        
-        # Register for health monitoring
-        self.health_monitor.register_connection(
-            'line_bot_api',
-            lambda: self._health_check_line_api(line_bot_api),
-            failure_threshold=5
+        # Extract parameters that OptimizedLineBotApi accepts
+        line_bot_api = OptimizedLineBotApi(
+            channel_access_token,
+            timeout=default_config.get('timeout', 10),
+            pool_maxsize=default_config.get('pool_maxsize', 20),
+            max_retries=default_config.get('max_retries', 3)
         )
+        
+        # Register for health monitoring if available
+        if hasattr(self, 'health_monitor') and self.health_monitor:
+            self.health_monitor.register_connection(
+                'line_bot_api',
+                lambda: self._health_check_line_api(line_bot_api),
+                failure_threshold=5
+            )
         
         return line_bot_api
     
