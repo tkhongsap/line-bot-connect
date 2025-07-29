@@ -403,10 +403,12 @@ def retry_with_backoff(
             
             for attempt in range(max_attempts):
                 try:
+                    # Ensure attempt is an integer for safe operations
+                    attempt_num = int(attempt) + 1
                     with logger.context(
                         function=func.__name__,
                         correlation_id=correlation_id,
-                        attempt=attempt + 1
+                        attempt=attempt_num
                     ):
                         return func(*args, **kwargs)
                         
@@ -421,15 +423,15 @@ def retry_with_backoff(
                     if attempt == max_attempts - 1:
                         raise
                     
-                    # Calculate delay with exponential backoff
-                    delay = min(base_delay * (backoff_factor ** attempt), max_delay)
+                    # Calculate delay with exponential backoff - ensure attempt is int
+                    delay = min(base_delay * (backoff_factor ** int(attempt)), max_delay)
                     
                     logger.warning(
-                        f"Attempt {attempt + 1} failed for {func.__name__}, retrying in {delay:.2f}s",
+                        f"Attempt {attempt_num} failed for {func.__name__}, retrying in {delay:.2f}s",
                         correlation_id=correlation_id,
                         extra_context={
                             'function': func.__name__,
-                            'attempt': attempt + 1,
+                            'attempt': attempt_num,
                             'delay': delay,
                             'error': str(e)
                         }

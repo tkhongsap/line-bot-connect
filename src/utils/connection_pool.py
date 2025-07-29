@@ -73,6 +73,9 @@ class ExponentialBackoff:
     
     def get_delay(self, attempt: int) -> float:
         """Calculate delay for the given attempt number."""
+        # Ensure attempt is an integer to prevent type errors
+        attempt = int(attempt) if attempt is not None else 0
+        
         delay = min(self.base_delay * (self.multiplier ** attempt), self.max_delay)
         
         if self.jitter:
