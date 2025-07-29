@@ -25,6 +25,12 @@ from src.utils.security import setup_cors, validate_webhook_ip
 # Import admin routes
 from src.routes.admin_routes import admin_bp
 
+# Import memory monitoring utilities
+from src.utils.memory_monitor import get_memory_monitor
+
+# Import connection pool monitoring
+from src.utils.connection_pool import connection_pool_manager
+
 # Create Flask app
 app = Flask(__name__)
 
@@ -76,6 +82,10 @@ rich_message_service = RichMessageService(
 )
 
 line_service = LineService(settings, openai_service, conversation_service, rich_message_service)
+
+# Initialize memory monitor
+memory_monitor = get_memory_monitor()
+memory_monitor.start_monitoring()
 
 @app.route('/')
 def index():
@@ -146,6 +156,77 @@ def conversations_status():
             for user_id, conv in conversation_service.conversations.items()
         ]
     })
+
+@app.route('/memory')
+@limiter.limit("20 per minute")  # Allow frequent memory status checks
+def memory_status():
+    """Get comprehensive memory usage statistics and alerts"""
+    try:
+        memory_summary = memory_monitor.get_memory_usage_summary()
+        
+        # Add additional context for dashboard
+        memory_summary['service_status'] = 'active' if memory_monitor._is_monitoring else 'inactive'
+        memory_summary['health'] = memory_monitor.get_health_status()
+        
+        return jsonify(memory_summary)
+        
+    except Exception as e:
+        logger.error(f"Error getting memory status: {str(e)}")
+        return jsonify({
+            'error': 'Failed to retrieve memory statistics',
+            'service_status': 'error',
+            'health': {'status': 'error', 'message': str(e)}
+        }), 500
+
+@app.route('/connection-pools')
+@limiter.limit("30 per minute")  # Moderate rate limit for connection pool monitoring
+def connection_pools_status():
+    """Get comprehensive connection pool statistics and health metrics"""
+    try:
+        # Get main connection pool metrics
+        pool_metrics = connection_pool_manager.get_metrics()
+        
+        # Add service-specific metrics if available
+        service_metrics = {}
+        
+        # Get OpenAI service metrics if available
+        try:
+            if hasattr(openai_service, 'get_connection_metrics'):
+                service_metrics['openai_service'] = openai_service.get_connection_metrics()
+        except Exception as e:
+            logger.debug(f"OpenAI service metrics not available: {e}")
+        
+        # Get LINE service metrics if available
+        try:
+            if hasattr(line_service, 'get_connection_metrics'):
+                service_metrics['line_service'] = line_service.get_connection_metrics()
+        except Exception as e:
+            logger.debug(f"LINE service metrics not available: {e}")
+        
+        return jsonify({
+            'connection_pools': pool_metrics,
+            'service_metrics': service_metrics,
+            'monitoring_status': {
+                'health_monitoring': connection_pool_manager.health_monitor._monitoring,
+                'leak_detection': connection_pool_manager.leak_detector is not None and connection_pool_manager.leak_detector._cleanup_running if connection_pool_manager.leak_detector else False,
+                'resource_monitoring': connection_pool_manager.resource_monitor._monitoring
+            },
+            'summary': {
+                'total_pools': pool_metrics.get('total_pools', 0),
+                'healthy_connections': len([h for h in pool_metrics.get('health', {}).values() if h.get('state') == 'healthy']),
+                'total_requests': pool_metrics.get('total_requests', 0),
+                'failed_requests': pool_metrics.get('failed_requests', 0),
+                'success_rate': (pool_metrics.get('total_requests', 0) - pool_metrics.get('failed_requests', 0)) / max(pool_metrics.get('total_requests', 1), 1) * 100
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting connection pool status: {str(e)}")
+        return jsonify({
+            'error': 'Failed to retrieve connection pool statistics',
+            'monitoring_status': 'error',
+            'message': str(e)
+        }), 500
 
 @app.route('/static/backgrounds/<filename>')
 @limiter.limit("100 per minute")  # Allow frequent access to background images

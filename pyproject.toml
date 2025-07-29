@@ -24,6 +24,7 @@ dependencies = [
     "aiofiles>=24.1.0",
     "asyncio>=3.4.3",
     "celery>=5.5.3",
+    "psutil>=6.1.1",
 ]
 
 [project.optional-dependencies]
@@ -34,4 +35,9 @@ test = [
     "pytest-mock>=3.11.0",
     "httpx>=0.24.0",
     "responses>=0.23.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest-asyncio>=1.1.0",
 ]

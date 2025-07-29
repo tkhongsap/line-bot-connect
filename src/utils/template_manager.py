@@ -17,6 +17,7 @@ from dataclasses import dataclass
 
 from src.models.rich_message_models import RichMessageTemplate, ContentCategory, ValidationError
 from src.config.rich_message_config import get_rich_message_config
+from src.utils.lru_cache_manager import get_lru_cache, CacheType
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,17 @@ class TemplateManager:
             config: Optional configuration object. If None, uses global config.
         """
         self.config = config or get_rich_message_config()
+        
+        # Initialize LRU cache for templates with memory monitoring
+        self.template_lru_cache = get_lru_cache(
+            name=f"template_manager_{id(self)}",
+            max_size=100,  # Max templates to cache
+            max_memory_mb=200.0,  # Templates can be large with image data
+            default_ttl=self.config.template.cache_duration_hours * 3600 if hasattr(self.config.template, 'cache_duration_hours') else 12*3600,
+            enable_memory_monitoring=True
+        )
+        
+        # Legacy cache for backward compatibility and fallback
         self.template_cache: Dict[str, TemplateCache] = {}
         self.metadata_cache: Optional[Dict[str, Any]] = None
         self.metadata_loaded_at: Optional[datetime] = None
@@ -139,7 +151,7 @@ class TemplateManager:
     
     def load_template(self, template_id: str, force_reload: bool = False) -> Optional[RichMessageTemplate]:
         """
-        Load a specific template by ID.
+        Load a specific template by ID with LRU caching.
         
         Args:
             template_id: Unique identifier for the template
@@ -149,18 +161,28 @@ class TemplateManager:
             RichMessageTemplate object or None if not found
         """
         try:
-            # Check cache first
-            if not force_reload and template_id in self.template_cache:
-                cache_entry = self.template_cache[template_id]
+            # Check LRU cache first (unless force reload)
+            if not force_reload:
+                lru_template = self.template_lru_cache.get(template_id)
+                if lru_template is not None:
+                    logger.debug(f"LRU cache hit for template: {template_id}")
+                    return lru_template
                 
-                # Validate cache freshness
-                cache_age_hours = (datetime.now() - cache_entry.cached_at).total_seconds() / 3600
-                if cache_age_hours < self.config.template.cache_duration_hours:
-                    # Check if file hasn't changed
-                    current_hash = self._get_file_hash(cache_entry.image_path)
-                    if current_hash == cache_entry.file_hash:
-                        logger.debug(f"Using cached template: {template_id}")
-                        return cache_entry.template
+                # Check legacy cache
+                if template_id in self.template_cache:
+                    cache_entry = self.template_cache[template_id]
+                    
+                    # Validate cache freshness
+                    cache_duration_hours = getattr(self.config.template, 'cache_duration_hours', 12)
+                    cache_age_hours = (datetime.now() - cache_entry.cached_at).total_seconds() / 3600
+                    if cache_age_hours < cache_duration_hours:
+                        # Check if file hasn't changed
+                        current_hash = self._get_file_hash(cache_entry.image_path)
+                        if current_hash == cache_entry.file_hash:
+                            logger.debug(f"Legacy cache hit for template: {template_id}")
+                            # Migrate to LRU cache
+                            self.template_lru_cache.put(template_id, cache_entry.template, cache_type=CacheType.TEMPLATE)
+                            return cache_entry.template
             
             # Reload metadata if necessary
             if self._should_reload_metadata():
@@ -185,8 +207,14 @@ class TemplateManager:
             # Create template object
             template = RichMessageTemplate.from_metadata(template_id, template_data)
             
-            # Cache the template
-            if self.config.template.cache_templates:
+            # Cache the template in LRU cache
+            lru_success = self.template_lru_cache.put(template_id, template, cache_type=CacheType.TEMPLATE)
+            if lru_success:
+                logger.debug(f"Cached template in LRU for: {template_id}")
+            
+            # Also cache in legacy cache if enabled for backward compatibility
+            cache_templates = getattr(self.config.template, 'cache_templates', True)
+            if cache_templates and not lru_success:  # Only use legacy if LRU failed
                 file_hash = self._get_file_hash(file_path)
                 cache_entry = TemplateCache(
                     template=template,
@@ -196,6 +224,7 @@ class TemplateManager:
                     file_hash=file_hash
                 )
                 self.template_cache[template_id] = cache_entry
+                logger.debug(f"Cached template in legacy cache for: {template_id}")
             
             logger.info(f"Loaded template: {template_id}")
             return template
@@ -345,24 +374,32 @@ class TemplateManager:
     
     def clear_cache(self) -> None:
         """Clear all cached templates and metadata."""
+        self.template_lru_cache.clear()
         self.template_cache.clear()
         self.metadata_cache = None
         self.metadata_loaded_at = None
-        logger.info("Template cache cleared")
+        logger.info("Template cache cleared (both LRU and legacy)")
     
     def get_cache_stats(self) -> Dict[str, Any]:
         """
-        Get cache statistics.
+        Get comprehensive cache statistics for both LRU and legacy caches.
         
         Returns:
             Dictionary with cache statistics
         """
+        lru_stats = self.template_lru_cache.get_statistics()
+        cache_templates = getattr(self.config.template, 'cache_templates', True)
+        
         return {
-            "cached_templates": len(self.template_cache),
+            "lru_cache": lru_stats,
+            "legacy_cached_templates": len(self.template_cache),
             "metadata_loaded": self.metadata_loaded_at is not None,
             "metadata_age_hours": (
                 (datetime.now() - self.metadata_loaded_at).total_seconds() / 3600
                 if self.metadata_loaded_at else None
             ),
-            "cache_enabled": self.config.template.cache_templates
+            "cache_enabled": cache_templates,
+            "total_templates_cached": lru_stats['size'] + len(self.template_cache),
+            "lru_hit_rate": lru_stats['hit_rate'],
+            "lru_memory_usage_mb": lru_stats['memory_usage_mb']
         }

@@ -4,9 +4,21 @@ import tempfile
 import base64
 import requests
 import signal
-from typing import Dict, Optional, Tuple
+import threading
+import glob
+import time
+from typing import Dict, Optional, Tuple, List
+from datetime import datetime, timedelta
 from PIL import Image
 import io
+from src.utils.memory_monitor import get_memory_monitor, MemoryStats
+from src.utils.connection_pool import connection_pool_manager, ExponentialBackoff
+
+# Global temp file tracking for memory-aware cleanup
+_global_temp_files = []
+_temp_files_lock = threading.RLock()
+_max_temp_files = 100  # Maximum number of temp files to track
+_memory_monitor_registered = False
 
 # Enable comprehensive mobile image format support
 try:
@@ -41,6 +53,157 @@ except Exception as e:
 
 logger = logging.getLogger(__name__)
 
+
+def _register_memory_cleanup():
+    """Register memory cleanup callbacks with the global memory monitor."""
+    global _memory_monitor_registered
+    
+    if _memory_monitor_registered:
+        return
+    
+    try:
+        memory_monitor = get_memory_monitor()
+        memory_monitor.add_cleanup_callback(_memory_cleanup_callback)
+        _memory_monitor_registered = True
+        logger.info("Registered image processing memory cleanup callbacks")
+    except Exception as e:
+        logger.warning(f"Failed to register memory cleanup callbacks: {e}")
+
+
+def _memory_cleanup_callback(cleanup_level: str, memory_stats: MemoryStats):
+    """
+    Callback function for memory monitor to clean up temp files.
+    
+    Args:
+        cleanup_level: Level of cleanup ('light', 'aggressive', 'emergency')
+        memory_stats: Current memory statistics
+    """
+    try:
+        if cleanup_level == "light":
+            _cleanup_old_temp_files(max_age_minutes=30)
+        elif cleanup_level == "aggressive":
+            _cleanup_old_temp_files(max_age_minutes=15)
+        elif cleanup_level == "emergency":
+            _cleanup_old_temp_files(max_age_minutes=5)
+            _cleanup_excess_temp_files(max_files=20)
+        
+        logger.info(f"Completed {cleanup_level} temp file cleanup")
+        
+    except Exception as e:
+        logger.error(f"Error during {cleanup_level} temp file cleanup: {e}")
+
+
+def _cleanup_old_temp_files(max_age_minutes: int):
+    """Clean up temp files older than specified minutes."""
+    with _temp_files_lock:
+        cutoff_time = datetime.now() - timedelta(minutes=max_age_minutes)
+        files_to_remove = []
+        cleanup_count = 0
+        
+        for file_info in _global_temp_files[:]:
+            if file_info['created_at'] < cutoff_time:
+                file_path = file_info['path']
+                try:
+                    if os.path.exists(file_path):
+                        os.unlink(file_path)
+                        cleanup_count += 1
+                    files_to_remove.append(file_info)
+                except OSError as e:
+                    logger.warning(f"Failed to remove old temp file {file_path}: {e}")
+                    files_to_remove.append(file_info)  # Remove from tracking anyway
+        
+        # Remove from tracking list
+        for file_info in files_to_remove:
+            if file_info in _global_temp_files:
+                _global_temp_files.remove(file_info)
+        
+        if cleanup_count > 0:
+            logger.info(f"Cleaned up {cleanup_count} old temp files (age > {max_age_minutes} minutes)")
+
+
+def _cleanup_excess_temp_files(max_files: int):
+    """Clean up excess temp files when limit is exceeded."""
+    with _temp_files_lock:
+        if len(_global_temp_files) <= max_files:
+            return
+        
+        # Sort by creation time (oldest first)
+        _global_temp_files.sort(key=lambda x: x['created_at'])
+        
+        # Remove oldest files beyond the limit
+        files_to_remove = _global_temp_files[:-max_files]
+        cleanup_count = 0
+        
+        for file_info in files_to_remove:
+            file_path = file_info['path']
+            try:
+                if os.path.exists(file_path):
+                    os.unlink(file_path)
+                    cleanup_count += 1
+            except OSError as e:
+                logger.warning(f"Failed to remove excess temp file {file_path}: {e}")
+        
+        # Keep only the most recent files
+        _global_temp_files[:] = _global_temp_files[-max_files:]
+        
+        if cleanup_count > 0:
+            logger.warning(f"Emergency cleanup: removed {cleanup_count} excess temp files")
+
+
+def _track_temp_file(file_path: str):
+    """Add temp file to global tracking system."""
+    with _temp_files_lock:
+        file_info = {
+            'path': file_path,
+            'created_at': datetime.now(),
+            'process_id': os.getpid()
+        }
+        
+        _global_temp_files.append(file_info)
+        
+        # Prevent memory leaks from tracking too many files
+        if len(_global_temp_files) > _max_temp_files:
+            # Remove oldest tracking entries (but don't delete the files)
+            _global_temp_files[:] = _global_temp_files[-_max_temp_files:]
+        
+        logger.debug(f"Tracking temp file: {file_path} (total tracked: {len(_global_temp_files)})")
+
+
+def _untrack_temp_file(file_path: str):
+    """Remove temp file from global tracking system."""
+    with _temp_files_lock:
+        _global_temp_files[:] = [
+            file_info for file_info in _global_temp_files 
+            if file_info['path'] != file_path
+        ]
+        logger.debug(f"Untracked temp file: {file_path}")
+
+
+def get_temp_file_stats() -> Dict:
+    """Get statistics about tracked temp files."""
+    with _temp_files_lock:
+        if not _global_temp_files:
+            return {
+                'total_tracked': 0,
+                'oldest_file_age_minutes': 0,
+                'newest_file_age_minutes': 0,
+                'memory_monitor_registered': _memory_monitor_registered
+            }
+        
+        now = datetime.now()
+        ages_minutes = [
+            (now - file_info['created_at']).total_seconds() / 60
+            for file_info in _global_temp_files
+        ]
+        
+        return {
+            'total_tracked': len(_global_temp_files),
+            'oldest_file_age_minutes': max(ages_minutes),
+            'newest_file_age_minutes': min(ages_minutes),
+            'average_age_minutes': sum(ages_minutes) / len(ages_minutes),
+            'memory_monitor_registered': _memory_monitor_registered
+        }
+
 class TimeoutError(Exception):
     """Custom timeout exception"""
     pass
@@ -64,6 +227,43 @@ class ImageProcessor:
     def __init__(self):
         self.temp_files = []  # Track temporary files for cleanup
         self._cleanup_completed = False  # Track cleanup state
+        
+        # Register global memory cleanup on first initialization
+        _register_memory_cleanup()
+        
+        # Set up connection pooling for image downloads
+        self._setup_image_connection_pools()
+        
+        # Download metrics
+        self.download_metrics = {
+            'total_downloads': 0,
+            'successful_downloads': 0,
+            'failed_downloads': 0,
+            'avg_download_time': 0.0,
+            'total_bytes_downloaded': 0
+        }
+    
+    def _setup_image_connection_pools(self):
+        """Set up connection pools optimized for image downloads."""
+        # Create session for LINE content API (image downloads) if not already created
+        try:
+            # Check if session already exists
+            if 'line_content_api' not in connection_pool_manager.pools:
+                self.image_session = connection_pool_manager.create_session_with_pooling(
+                    name="line_content_api",
+                    base_url="https://api-data.line.me",
+                    pool_maxsize=8,  # Smaller pool for image downloads
+                    max_retries=2,
+                    enable_keep_alive=True
+                )
+                logger.info("Created connection pool for image downloads")
+            else:
+                # Use existing session
+                self.image_session = connection_pool_manager.pools['line_content_api']['session']
+                logger.debug("Using existing connection pool for image downloads")
+        except Exception as e:
+            logger.warning(f"Failed to set up image connection pool: {e}")
+            self.image_session = None
     
     def __enter__(self):
         """Context manager entry point"""
@@ -90,7 +290,7 @@ class ImageProcessor:
     
     def download_image_from_line(self, line_bot_api, message_id: str, timeout_seconds: int = 10) -> Optional[Dict]:
         """
-        Download image from LINE Bot API using message ID with timeout
+        Download image from LINE Bot API using message ID with connection pooling and timeout
         
         Args:
             line_bot_api: LINE Bot API instance
@@ -100,42 +300,84 @@ class ImageProcessor:
         Returns:
             Dict with success status and image data/error info
         """
+        start_time = time.time()
+        
         try:
-            logger.info(f"Downloading image with message_id: {message_id} (timeout: {timeout_seconds}s)")
+            logger.info(f"Downloading image with message_id: {message_id} (timeout: {timeout_seconds}s, pooled: {self.image_session is not None})")
             
-            # Set up timeout
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(timeout_seconds)
+            # Update download metrics
+            self.download_metrics['total_downloads'] += 1
             
-            try:
-                # Get image content from LINE API
-                image_content = line_bot_api.get_message_content(message_id)
+            # Define download operation for connection pooling
+            def download_operation():
+                # Set up timeout
+                signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(timeout_seconds)
                 
-                # Read image data
-                image_data = b''
-                for chunk in image_content.iter_content():
-                    image_data += chunk
-                
-            finally:
-                # Cancel timeout
-                signal.alarm(0)
+                try:
+                    # Get image content from LINE API
+                    image_content = line_bot_api.get_message_content(message_id)
+                    
+                    # Read image data with streaming for better memory management
+                    image_data = b''
+                    chunk_size = 8192  # 8KB chunks for better memory usage
+                    
+                    for chunk in image_content.iter_content(chunk_size=chunk_size):
+                        if chunk:  # Filter out keep-alive chunks
+                            image_data += chunk
+                            
+                            # Check size limit during download to avoid memory issues
+                            if len(image_data) > self.MAX_FILE_SIZE:
+                                raise ValueError(f"Image too large: {len(image_data)} bytes > {self.MAX_FILE_SIZE}")
+                    
+                    return image_data
+                    
+                finally:
+                    # Cancel timeout
+                    signal.alarm(0)
             
-            # Validate file size
-            if len(image_data) > self.MAX_FILE_SIZE:
-                logger.warning(f"Image too large: {len(image_data)} bytes > {self.MAX_FILE_SIZE}")
-                return {
-                    'success': False,
-                    'error': 'Image file too large (max 10MB)',
-                    'error_code': 'FILE_TOO_LARGE'
-                }
+            # Execute download with connection pooling and retry logic
+            if self.image_session:
+                backoff = ExponentialBackoff(base_delay=0.5, max_delay=5.0, multiplier=1.5)
+                image_data = connection_pool_manager.execute_with_retry(
+                    "line_content_api",
+                    download_operation,
+                    max_attempts=2,
+                    backoff=backoff
+                )
+            else:
+                # Fallback to direct download without pooling
+                logger.warning("No connection pool available, using direct download")
+                image_data = download_operation()
             
             # Validate and get image info
             validation_result = self._validate_image(image_data)
             if not validation_result['success']:
+                self.download_metrics['failed_downloads'] += 1
                 return validation_result
             
             # Create temporary file
             temp_file_path = self._create_temp_file(image_data, validation_result['format'])
+            
+            # Update success metrics
+            download_time = time.time() - start_time
+            self.download_metrics['successful_downloads'] += 1
+            self.download_metrics['total_bytes_downloaded'] += len(image_data)
+            self.download_metrics['avg_download_time'] = (
+                (self.download_metrics['avg_download_time'] * (self.download_metrics['successful_downloads'] - 1) + download_time) /
+                self.download_metrics['successful_downloads']
+            )
+            
+            logger.info(
+                f"Image downloaded successfully with connection pooling",
+                extra={
+                    'message_id': message_id,
+                    'size_bytes': len(image_data),
+                    'format': validation_result['format'],
+                    'download_time': download_time,
+                    'pooled': self.image_session is not None
+                }
+            )
             
             return {
                 'success': True,
@@ -143,23 +385,53 @@ class ImageProcessor:
                 'temp_file_path': temp_file_path,
                 'format': validation_result['format'],
                 'size': len(image_data),
-                'dimensions': validation_result['dimensions']
+                'dimensions': validation_result['dimensions'],
+                'download_time': download_time,
+                'pooled': self.image_session is not None
             }
             
         except TimeoutError:
-            logger.error(f"Timeout downloading image {message_id}")
+            self.download_metrics['failed_downloads'] += 1
+            logger.error(f"Timeout downloading image {message_id} with connection pooling")
             return {
                 'success': False,
                 'error': f'Image download timed out after {timeout_seconds} seconds',
-                'error_code': 'DOWNLOAD_TIMEOUT'
+                'error_code': 'DOWNLOAD_TIMEOUT',
+                'download_time': time.time() - start_time
+            }
+        except ValueError as e:
+            # Handle size limit errors specifically
+            self.download_metrics['failed_downloads'] += 1
+            logger.warning(f"Image size validation failed for {message_id}: {str(e)}")
+            return {
+                'success': False,
+                'error': 'Image file too large (max 10MB)',
+                'error_code': 'FILE_TOO_LARGE',
+                'download_time': time.time() - start_time
             }
         except Exception as e:
-            logger.error(f"Error downloading image {message_id}: {str(e)}")
+            self.download_metrics['failed_downloads'] += 1
+            logger.error(f"Error downloading image {message_id} with connection pooling: {str(e)}")
             return {
                 'success': False,
                 'error': f'Failed to download image: {str(e)}',
-                'error_code': 'DOWNLOAD_FAILED'
+                'error_code': 'DOWNLOAD_FAILED',
+                'download_time': time.time() - start_time
             }
+    
+    def get_download_metrics(self) -> Dict:
+        """Get image download metrics."""
+        pool_metrics = connection_pool_manager.get_metrics()
+        
+        # Filter for image-related pools
+        image_pools = {k: v for k, v in pool_metrics.get('pools', {}).items() if 'content' in k}
+        
+        return {
+            'download_metrics': self.download_metrics,
+            'connection_pools': image_pools,
+            'pool_health': {k: v for k, v in pool_metrics.get('health', {}).items() if 'content' in k},
+            'temp_file_stats': get_temp_file_stats()
+        }
     
     def _validate_image(self, image_data: bytes) -> Dict:
         """Validate image format and dimensions"""
@@ -220,8 +492,9 @@ class ImageProcessor:
             with os.fdopen(temp_fd, 'wb') as temp_file:
                 temp_file.write(image_data)
             
-            # Track for cleanup
+            # Track for cleanup (both local and global)
             self.temp_files.append(temp_path)
+            _track_temp_file(temp_path)
             
             logger.debug(f"Created temporary file: {temp_path}")
             return temp_path
@@ -481,14 +754,22 @@ class ImageProcessor:
                     logger.debug(f"Successfully cleaned up temporary file: {temp_path}")
                 else:
                     logger.debug(f"Temporary file already removed: {temp_path}")
+                
+                # Remove from global tracking
+                _untrack_temp_file(temp_path)
+                
             except OSError as e:
                 failed_count += 1
                 failed_files.append(temp_path)
                 logger.warning(f"Failed to cleanup temporary file {temp_path}: {str(e)}")
+                # Still remove from tracking even if cleanup failed
+                _untrack_temp_file(temp_path)
             except Exception as e:
                 failed_count += 1
                 failed_files.append(temp_path)
                 logger.error(f"Unexpected error cleaning up temporary file {temp_path}: {str(e)}")
+                # Still remove from tracking even if cleanup failed
+                _untrack_temp_file(temp_path)
         
         # Clear the list regardless of individual cleanup success
         self.temp_files.clear()
