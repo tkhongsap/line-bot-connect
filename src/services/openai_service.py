@@ -534,7 +534,8 @@ class OpenAIService:
         import io
         upload_name = file_name or "upload.dat"
         file_obj = io.BytesIO(file_data)
-        response = self.client.files.create(file=(upload_name, file_obj), purpose="vision")
+        # Use 'assistants' purpose for general file analysis, 'vision' is specifically for images
+        response = self.client.files.create(file=(upload_name, file_obj), purpose="assistants")
         return response.id
 
     def _record_api_success(self):

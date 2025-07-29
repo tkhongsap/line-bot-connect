@@ -6,7 +6,7 @@ import logging
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError, LineBotApiError
 from linebot.models import (
-    MessageEvent, TextMessage, ImageMessage, TextSendMessage,
+    MessageEvent, TextMessage, ImageMessage, FileMessage, TextSendMessage,
     PostbackEvent, FlexSendMessage
 )
 
@@ -34,6 +34,9 @@ class LineService:
         def handle_image_message(event):
             self._handle_image_message(event)
 
+        @self.handler.add(MessageEvent, message=FileMessage)
+        def handle_file_message(event):
+            self._handle_file_message(event)
             
         # Register postback handler for Rich Message interactions
         @self.handler.add(PostbackEvent)
@@ -220,11 +223,54 @@ class LineService:
             download = processor.download_file_from_line(self.line_bot_api, message_id)
 
             if not download or not download.get("success", False):
-                error_msg = "檔案下載失敗，請稍後再試。\nFile download failed, please try again later."
+                error_code = download.get("error_code", "UNKNOWN") if download else "UNKNOWN"
+                
+                if error_code == "FILE_TOO_LARGE":
+                    error_msg = (
+                        "ไฟล์ขนาดใหญ่เกินไป (สูงสุด 20MB)\n"
+                        "File too large (maximum 20MB)"
+                    )
+                elif error_code == "DOWNLOAD_TIMEOUT":
+                    error_msg = (
+                        "การดาวน์โหลดไฟล์หมดเวลา กรุณาลองใหม่\n"
+                        "File download timed out, please try again"
+                    )
+                else:
+                    error_msg = (
+                        "ไม่สามารถดาวน์โหลดไฟล์ได้ กรุณาลองใหม่\n"
+                        "Cannot download file, please try again"
+                    )
+                
                 self._send_message(event.reply_token, error_msg)
                 return
 
             file_data = download["file_data"]
+            
+            # Validate file type before processing
+            file_validation = processor.validate_file_type(file_name, file_data)
+            if not file_validation.get("success", False):
+                error_info = file_validation.get("detected_type", {})
+                detected_ext = error_info.get("extension", "unknown")
+                
+                error_msg = (
+                    f"ไฟล์ประเภท {detected_ext} ไม่รองรับ กรุณาส่งไฟล์ประเภทที่รองรับ\n"
+                    f"File type {detected_ext} not supported. Please send a supported file type.\n\n"
+                    f"รองรับ / Supported: PDF, DOC, DOCX, TXT, XLS, XLSX, CSV, PPT, PPTX, "
+                    f"PY, JS, HTML, CSS, JSON, XML, SQL, MD, YAML"
+                )
+                self._send_message(event.reply_token, error_msg)
+                return
+
+            # Send processing status message via push (since we can only reply once)
+            processing_msg = (
+                f"กำลังวิเคราะห์ไฟล์ {file_name} โปรดรอสักครู่...\n"
+                f"Analyzing file {file_name}, please wait..."
+            )
+            try:
+                from linebot.models import TextSendMessage
+                self.line_bot_api.push_message(user_id, TextSendMessage(text=processing_msg))
+            except Exception as push_error:
+                logger.warning(f"Could not send processing status: {push_error}")
 
             ai_response = self.openai_service.get_response(
                 user_id,
