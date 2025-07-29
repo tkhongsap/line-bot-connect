@@ -259,6 +259,9 @@ class HealthMonitor:
         if not backoff:
             backoff = ExponentialBackoff()
         
+        # Ensure max_attempts is an integer to prevent type errors
+        max_attempts = int(max_attempts) if max_attempts is not None else 3
+        
         circuit_breaker = self.circuit_breakers.get(name)
         last_exception = None
         
@@ -271,7 +274,8 @@ class HealthMonitor:
                     
             except Exception as e:
                 last_exception = e
-                logger.warning(f"Attempt {attempt + 1} failed for '{name}': {e}")
+                attempt_num = int(attempt) + 1  # Ensure both are integers
+                logger.warning(f"Attempt {attempt_num} failed for '{name}': {e}")
                 
                 if attempt < max_attempts - 1:  # Don't sleep on last attempt
                     delay = backoff.get_delay(attempt)

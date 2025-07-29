@@ -38,6 +38,11 @@ test = [
     "httpx>=0.24.0",
     "responses>=0.23.0",
 ]
+image-formats = [
+    "pillow-heif>=0.18.0", # HEIC/HEIF support for Samsung screenshots
+    "pillow-avif-plugin>=0.3.0", # AVIF support for modern Android
+    "pillow-jxl-plugin>=0.2.0", # JPEG XL support for cutting-edge formats
+]
 
 [dependency-groups]
 dev = [
