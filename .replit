@@ -2,7 +2,7 @@ modules = ["nodejs-20", "python-3.11"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["freetype", "lcms2", "libaom", "libde265", "libheif", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "nasm", "openjpeg", "openssl", "postgresql", "tcl", "tk", "x265", "zlib"]
+packages = ["freetype", "lcms2", "libaom", "libde265", "libheif", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "nasm", "openjpeg", "openssl", "postgresql", "tcl", "tk", "x265", "zlib", "libheif", "x265", "libde265"]
 
 [deployment]
 deploymentTarget = "autoscale"

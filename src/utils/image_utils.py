@@ -339,10 +339,11 @@ class ImageProcessor:
             # Execute download with connection pooling and retry logic
             if self.image_session:
                 backoff = ExponentialBackoff(base_delay=0.5, max_delay=5.0, multiplier=1.5)
+                # Ensure max_attempts is an integer to prevent type errors
                 image_data = connection_pool_manager.execute_with_retry(
                     "line_content_api",
                     download_operation,
-                    max_attempts=2,
+                    max_attempts=int(2),  # Explicitly cast to int
                     backoff=backoff
                 )
             else:
