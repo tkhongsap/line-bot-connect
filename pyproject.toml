@@ -25,6 +25,8 @@ dependencies = [
     "asyncio>=3.4.3",
     "celery>=5.5.3",
     "psutil>=6.1.1",
+    "h2>=4.2.0",
+    "httpx[http2]>=0.28.1",
 ]
 
 [project.optional-dependencies]
