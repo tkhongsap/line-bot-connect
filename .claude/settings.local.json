@@ -21,7 +21,8 @@
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(find:*)",
       "Bash(pytest:*)",
-      "WebFetch(domain:claude.ai)"
+      "WebFetch(domain:claude.ai)",
+      "Bash(git pull:*)"
     ],
     "deny": []
   }
