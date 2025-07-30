@@ -1,0 +1,355 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LINE Bot Configuration Schema",
+  "description": "JSON Schema for validating LINE Bot centralized configuration",
+  "type": "object",
+  "required": ["config_version", "line", "azure_openai", "application"],
+  "properties": {
+    "config_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Configuration version in semver format"
+    },
+    "line": {
+      "type": "object",
+      "required": ["channel_access_token", "channel_secret"],
+      "properties": {
+        "channel_access_token": {
+          "type": "string",
+          "description": "LINE Bot channel access token"
+        },
+        "channel_secret": {
+          "type": "string",
+          "description": "LINE Bot channel secret"
+        },
+        "channel_id": {
+          "type": ["string", "null"],
+          "description": "LINE Bot channel ID"
+        }
+      },
+      "additionalProperties": false
+    },
+    "azure_openai": {
+      "type": "object",
+      "required": ["api_key", "endpoint", "deployment_name"],
+      "properties": {
+        "api_key": {
+          "type": "string",
+          "description": "Azure OpenAI API key"
+        },
+        "endpoint": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://",
+          "description": "Azure OpenAI endpoint URL"
+        },
+        "api_version": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}(-preview)?$",
+          "description": "Azure OpenAI API version"
+        },
+        "deployment_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Azure OpenAI deployment name"
+        }
+      },
+      "additionalProperties": false
+    },
+    "conversation": {
+      "type": "object",
+      "properties": {
+        "max_messages_per_user": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "Maximum messages per user conversation"
+        },
+        "max_total_conversations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000,
+          "description": "Maximum total conversations"
+        },
+        "storage_backend": {
+          "type": "string",
+          "enum": ["memory", "redis"],
+          "description": "Storage backend for conversations"
+        },
+        "redis_url": {
+          "type": ["string", "null"],
+          "pattern": "^redis://",
+          "description": "Redis connection URL"
+        },
+        "conversation_ttl_hours": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8760,
+          "description": "Conversation TTL in hours"
+        }
+      },
+      "additionalProperties": false
+    },
+    "rich_message": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable Rich Message automation"
+        },
+        "enabled_categories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["motivation", "inspiration", "wellness", "productivity", "nature", "educational", "general"]
+          },
+          "uniqueItems": true,
+          "description": "Enabled content categories"
+        },
+        "default_send_hour": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 23,
+          "description": "Default send hour (24-hour format)"
+        },
+        "timezone_aware": {
+          "type": "boolean",
+          "description": "Enable timezone-aware scheduling"
+        },
+        "default_timezone": {
+          "type": "string",
+          "description": "Default timezone"
+        },
+        "analytics_enabled": {
+          "type": "boolean",
+          "description": "Enable analytics tracking"
+        },
+        "template_cache_hours": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8760,
+          "description": "Template cache duration in hours"
+        },
+        "content_cache_hours": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 168,
+          "description": "Content cache duration in hours"
+        },
+        "max_retries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Maximum retry attempts"
+        },
+        "batch_size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "description": "Batch size for processing"
+        },
+        "rate_limit_per_minute": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000,
+          "description": "Rate limit per minute"
+        },
+        "rate_limit_per_hour": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000,
+          "description": "Rate limit per hour"
+        }
+      },
+      "additionalProperties": false
+    },
+    "template": {
+      "type": "object",
+      "properties": {
+        "template_directory": {
+          "type": "string",
+          "description": "Template directory path"
+        },
+        "metadata_file": {
+          "type": "string",
+          "description": "Metadata file path"
+        },
+        "cache_templates": {
+          "type": "boolean",
+          "description": "Enable template caching"
+        },
+        "max_template_size_mb": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 100,
+          "description": "Maximum template size in MB"
+        },
+        "supported_formats": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["png", "jpg", "jpeg", "gif", "webp"]
+          },
+          "uniqueItems": true,
+          "description": "Supported image formats"
+        },
+        "fallback_template": {
+          "type": "string",
+          "description": "Fallback template filename"
+        }
+      },
+      "additionalProperties": false
+    },
+    "celery": {
+      "type": "object",
+      "properties": {
+        "broker_url": {
+          "type": "string",
+          "pattern": "^(redis://|amqp://)",
+          "description": "Celery broker URL"
+        },
+        "result_backend": {
+          "type": "string",
+          "pattern": "^(redis://|rpc://)",
+          "description": "Celery result backend URL"
+        },
+        "task_time_limit": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 3600,
+          "description": "Task time limit in seconds"
+        },
+        "task_soft_time_limit": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 3600,
+          "description": "Task soft time limit in seconds"
+        },
+        "worker_max_tasks_per_child": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "Max tasks per worker child"
+        }
+      },
+      "additionalProperties": false
+    },
+    "application": {
+      "type": "object",
+      "required": ["environment", "debug", "log_level"],
+      "properties": {
+        "environment": {
+          "type": "string",
+          "enum": ["development", "staging", "production", "testing"],
+          "description": "Application environment"
+        },
+        "debug": {
+          "type": "boolean",
+          "description": "Enable debug mode"
+        },
+        "log_level": {
+          "type": "string",
+          "enum": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+          "description": "Application log level"
+        },
+        "session_secret": {
+          "type": "string",
+          "minLength": 16,
+          "description": "Flask session secret key"
+        },
+        "host": {
+          "type": "string",
+          "description": "Application host"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "Application port"
+        },
+        "workers": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32,
+          "description": "Number of worker processes"
+        }
+      },
+      "additionalProperties": false
+    },
+    "rate_limit": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable rate limiting"
+        },
+        "default_limits": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^\\d+\\s+per\\s+(second|minute|hour|day)$"
+          },
+          "description": "Default rate limit strings"
+        },
+        "storage_uri": {
+          "type": "string",
+          "description": "Rate limit storage URI"
+        },
+        "webhook_limit": {
+          "type": "string",
+          "pattern": "^\\d+\\s+per\\s+(second|minute|hour|day)$",
+          "description": "Webhook rate limit"
+        },
+        "api_limit": {
+          "type": "string",
+          "pattern": "^\\d+\\s+per\\s+(second|minute|hour|day)$",
+          "description": "API rate limit"
+        }
+      },
+      "additionalProperties": false
+    },
+    "web_search_enabled": {
+      "type": "boolean",
+      "description": "Enable web search functionality"
+    },
+    "web_search_rate_limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000,
+      "description": "Web search rate limit per user per hour"
+    },
+    "web_search_cache_minutes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1440,
+      "description": "Web search cache duration in minutes"
+    },
+    "multimodal_enabled": {
+      "type": "boolean",
+      "description": "Enable multimodal capabilities"
+    },
+    "max_image_size_mb": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 50,
+      "description": "Maximum image size in MB"
+    },
+    "max_image_dimension": {
+      "type": "integer",
+      "minimum": 256,
+      "maximum": 8192,
+      "description": "Maximum image dimension in pixels"
+    },
+    "supported_languages": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z]{2}$"
+      },
+      "uniqueItems": true,
+      "minItems": 1,
+      "description": "Supported language codes"
+    }
+  },
+  "additionalProperties": false
+}
