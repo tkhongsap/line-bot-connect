@@ -2,18 +2,27 @@ import logging
 import time
 import hashlib
 import httpx
+import asyncio
 from typing import Optional, Dict, Any
 from openai import AzureOpenAI
 from openai.types.chat import ChatCompletion
 from ..utils.prompt_manager import PromptManager
 from ..utils.cache_manager import get_cache_manager
 from ..utils.connection_pool import connection_pool_manager, ExponentialBackoff
+from ..utils.azure_api_detector import AzureOpenAICapabilityDetector
+from ..utils.capability_cache import get_capability_cache
+from ..utils.api_router import get_api_router, APIType
+from ..config.centralized_config import get_config
 from ..exceptions import (
     OpenAIAPIException, NetworkException, TimeoutException,
     RateLimitException, ValidationException, BaseBotException,
-    create_correlation_id, wrap_api_exception
+    create_correlation_id, wrap_api_exception,
+    AzureOpenAIException, FeatureNotEnabledError, DeploymentNotFoundError,
+    AuthenticationFailedError, QuotaExceededError, APICapabilityError,
+    create_azure_openai_exception
 )
 from ..utils.error_handler import StructuredLogger, error_handler, retry_with_backoff
+from ..utils.metrics_collector import get_metrics_collector, APIType, record_api_request, record_routing_decision
 
 logger = StructuredLogger(__name__)
 
@@ -57,6 +66,16 @@ class OpenAIService:
             
             logger.info("Initialized Azure OpenAI service with connection pooling")
             
+            # Initialize capabilities if enabled
+            try:
+                centralized_config = get_config()
+                if centralized_config.azure_openai.enable_startup_validation and self.capability_detector:
+                    logger.info("Starting Azure OpenAI capability validation...")
+                    # Run startup validation in background
+                    asyncio.create_task(self._initialize_capabilities())
+            except Exception as e:
+                logger.warning(f"Could not start capability validation: {e}")
+            
         except Exception as e:
             raise OpenAIAPIException(
                 message=f"Failed to initialize Azure OpenAI client: {str(e)}",
@@ -67,7 +86,34 @@ class OpenAIService:
                 }
             )
         
-        # Circuit breaker for API availability with TTL cache
+        # Initialize intelligent API routing system with centralized config
+        try:
+            centralized_config = get_config()
+            self.capability_detector = AzureOpenAICapabilityDetector(
+                settings=centralized_config,
+                cache_ttl=centralized_config.azure_openai.capability_cache_ttl
+            )
+            self.capability_cache = get_capability_cache(
+                ttl=centralized_config.azure_openai.capability_cache_ttl
+            )
+            self.api_router = get_api_router(
+                settings=centralized_config,
+                capability_detector=self.capability_detector,
+                capability_cache=self.capability_cache
+            )
+            # Initialize metrics collector for comprehensive tracking
+            self.metrics_collector = get_metrics_collector()
+            
+            logger.info("Initialized intelligent API routing system with metrics collection")
+        except Exception as e:
+            logger.warning(f"Could not initialize intelligent API routing: {e}")
+            # Continue with legacy circuit breaker
+            self.capability_detector = None
+            self.capability_cache = None
+            self.api_router = None
+            self.metrics_collector = get_metrics_collector()  # Always initialize metrics
+        
+        # Legacy circuit breaker (kept for backward compatibility)
         self.responses_api_available = None
         self.api_check_timestamp = None
         self.api_check_ttl = 300  # 5 minutes cache
@@ -196,22 +242,190 @@ class OpenAIService:
         """Get access to the prompt manager for advanced customization"""
         return self.prompt_manager
 
-    def _should_use_responses_api(self):
-        """Determine if Responses API should be used based on circuit breaker pattern"""
-        current_time = time.time()
+    def _should_use_responses_api(self, correlation_id: Optional[str] = None):
+        """
+        Enhanced routing decision with comprehensive error handling and graceful degradation.
         
-        # Check if we have a cached result that's still valid
-        if (self.responses_api_available is not None and 
-            self.api_check_timestamp is not None and 
-            current_time - self.api_check_timestamp < self.api_check_ttl):
-            return self.responses_api_available
+        Features:
+        - Structured logging with correlation IDs
+        - Metrics collection for routing decisions
+        - Graceful degradation messaging
+        - Intelligent fallback logic
+        """
+        routing_start_time = time.time()
+        correlation_id = correlation_id or create_correlation_id()
         
-        # Check if we're in failure cooldown period
-        if (self.api_failure_count >= self.max_failures_before_fallback and
-            self.api_check_timestamp is not None and
-            current_time - self.api_check_timestamp < self.failure_reset_time):
-            logger.debug("Responses API in failure cooldown, using Chat Completions")
+        try:
+            # Try to get intelligent routing decision first
+            if self.api_router:
+                try:
+                    decision = self.api_router.should_use_responses_api()
+                    routing_time_ms = (time.time() - routing_start_time) * 1000
+                    
+                    # Record routing decision in metrics
+                    chosen_api = APIType.RESPONSES_API if decision else APIType.CHAT_COMPLETIONS
+                    self.metrics_collector.record_routing_decision(
+                        chosen_api=chosen_api,
+                        routing_time_ms=routing_time_ms,
+                        cache_hit=True,
+                        correlation_id=correlation_id
+                    )
+                    
+                    # Enhanced logging with degradation messaging
+                    degradation_msg = None
+                    if not decision:
+                        degradation_msg = "Using Chat Completions API - full functionality maintained"
+                    else:
+                        degradation_msg = "Using Responses API - enhanced features available"
+                    
+                    logger.info(
+                        f"Intelligent routing decision: {chosen_api.value}",
+                        extra={
+                            'correlation_id': correlation_id,
+                            'routing_time_ms': routing_time_ms,
+                            'chosen_api': chosen_api.value,
+                            'routing_method': 'intelligent',
+                            'degradation_message': degradation_msg
+                        }
+                    )
+                    
+                    return decision
+                    
+                except Exception as e:
+                    # Create structured exception for routing failure
+                    routing_error = APICapabilityError(
+                        capability_issue=f"Routing decision failed: {str(e)}",
+                        fallback_available=True,
+                        correlation_id=correlation_id
+                    )
+                    
+                    logger.warning(
+                        f"Intelligent routing failed, using legacy fallback: {str(e)}",
+                        extra={
+                            'correlation_id': correlation_id,
+                            'error_type': 'routing_failure',
+                            'fallback_method': 'legacy_circuit_breaker',
+                            'original_error': str(e)
+                        }
+                    )
+                    
+                    # Record error in metrics
+                    self.metrics_collector.record_api_request(
+                        api_type=APIType.RESPONSES_API,
+                        success=False,
+                        response_time_ms=0,
+                        error_message=str(routing_error),
+                        correlation_id=correlation_id
+                    )
+                    
+                    # Continue to legacy logic
+        
+            # Enhanced legacy circuit breaker logic
+            current_time = time.time()
+            
+            # Check if we have a cached result that's still valid
+            if (self.responses_api_available is not None and 
+                self.api_check_timestamp is not None and 
+                current_time - self.api_check_timestamp < self.api_check_ttl):
+                
+                cache_age = current_time - self.api_check_timestamp
+                chosen_api_name = 'responses_api' if self.responses_api_available else 'chat_completions'
+                
+                logger.debug(
+                    f"Using cached routing decision: {chosen_api_name}",
+                    extra={
+                        'correlation_id': correlation_id,
+                        'cache_age_seconds': cache_age,
+                        'chosen_api': chosen_api_name,
+                        'routing_method': 'cached_circuit_breaker'
+                    }
+                )
+                
+                return self.responses_api_available
+            
+            # Check if we're in failure cooldown period  
+            if (self.api_failure_count >= self.max_failures_before_fallback and
+                self.api_check_timestamp is not None and
+                current_time - self.api_check_timestamp < self.failure_reset_time):
+                
+                logger.info(
+                    "Using Chat Completions API - Responses API in cooldown period",
+                    extra={
+                        'correlation_id': correlation_id,
+                        'chosen_api': 'chat_completions',
+                        'failure_count': self.api_failure_count,
+                        'cooldown_remaining_seconds': self.failure_reset_time - (current_time - self.api_check_timestamp),
+                        'degradation_message': 'Temporary degradation - service will retry automatically'
+                    }
+                )
+                return False
+            
+            # If permanently disabled due to 404 errors, don't retry
+            if self.responses_api_available is False:
+                logger.info(
+                    "Using Chat Completions API - Responses API permanently unavailable",
+                    extra={
+                        'correlation_id': correlation_id,
+                        'chosen_api': 'chat_completions',
+                        'reason': 'permanent_404_error',
+                        'degradation_message': 'Responses API not supported in this deployment'
+                    }
+                )
+                return False
+            
+            # Default to trying Responses API for the first time
+            logger.debug(
+                "Attempting Responses API (no previous failures)",
+                extra={
+                    'correlation_id': correlation_id,
+                    'chosen_api': 'responses_api',
+                    'routing_method': 'first_attempt'
+                }
+            )
+            return True
+            
+        except Exception as e:
+            # Handle any unexpected errors in routing logic
+            routing_error = APICapabilityError(
+                capability_issue=f"Unexpected routing error: {str(e)}",
+                fallback_available=True,
+                correlation_id=correlation_id
+            )
+            
+            logger.error(
+                f"Unexpected error in routing decision, defaulting to Chat Completions: {str(e)}",
+                extra={
+                    'correlation_id': correlation_id,
+                    'error_type': 'unexpected_routing_error',
+                    'chosen_api': 'chat_completions',
+                    'degradation_message': 'Using fallback API due to routing system error'
+                }
+            )
+            
+            # Record error in metrics
+            self.metrics_collector.record_api_request(
+                api_type=APIType.RESPONSES_API,
+                success=False,
+                response_time_ms=0,
+                error_message=str(routing_error),
+                correlation_id=correlation_id
+            )
+            
+            # Default to Chat Completions for safety
             return False
+        
+        finally:
+            # Always track routing performance
+            routing_time_ms = (time.time() - routing_start_time) * 1000
+            if routing_time_ms > 50:
+                logger.warning(
+                    f"Routing decision exceeded 50ms threshold: {routing_time_ms:.1f}ms",
+                    extra={
+                        'correlation_id': correlation_id,
+                        'routing_time_ms': routing_time_ms,
+                        'performance_threshold_exceeded': True
+                    }
+                )
         
         # Reset failure count after cooldown period
         if (self.api_failure_count >= self.max_failures_before_fallback and
@@ -223,6 +437,166 @@ class OpenAIService:
         
         # If we don't have a cached result, assume Responses API is available
         # and let the actual API call determine if it works
+        if self.responses_api_available is None:
+            logger.debug("No cached API availability, defaulting to Responses API")
+            self.responses_api_available = True
+            self.api_check_timestamp = current_time
+        
+        return self.responses_api_available
+    
+    def _get_sync_routing_decision(self):
+        """Get routing decision synchronously using cached capabilities with performance monitoring"""
+        start_time = time.time()
+        
+        try:
+            # Try to get cached capabilities
+            if self.capability_cache:
+                # Use sync file access for quick decision
+                import json
+                from pathlib import Path
+                cache_file = Path("data/api_capabilities.json")
+                
+                if cache_file.exists():
+                    try:
+                        with open(cache_file, 'r') as f:
+                            cache_data = json.load(f)
+                        
+                        # Check TTL
+                        from datetime import datetime
+                        last_updated = datetime.fromisoformat(cache_data['last_updated'])
+                        ttl = cache_data.get('ttl_seconds', 300)
+                        age = (datetime.now() - last_updated).total_seconds()
+                        
+                        if age < ttl:
+                            capabilities = cache_data['capabilities']
+                            
+                            # Apply routing logic based on cached capabilities
+                            try:
+                                centralized_config = get_config()
+                                
+                                # Check force_chat_completions override
+                                if centralized_config.azure_openai.force_chat_completions:
+                                    logger.info("Using Chat Completions API (forced by configuration)")
+                                    return False, None
+                                
+                                # Check Responses API availability and preference
+                                responses_available = capabilities.get('responses_api_available', False)
+                                
+                                if responses_available and centralized_config.azure_openai.prefer_responses_api:
+                                    routing_time = (time.time() - start_time) * 1000
+                                    logger.info(f"Using Responses API (available and preferred) - routing time: {routing_time:.1f}ms")
+                                    if routing_time > 50:
+                                        logger.warning(f"Routing decision exceeded 50ms target: {routing_time:.1f}ms")
+                                    return True, None
+                                else:
+                                    reason = "unavailable" if not responses_available else "not preferred"
+                                    routing_time = (time.time() - start_time) * 1000
+                                    logger.info(f"Using Chat Completions API (Responses API {reason}) - routing time: {routing_time:.1f}ms")
+                                    if routing_time > 50:
+                                        logger.warning(f"Routing decision exceeded 50ms target: {routing_time:.1f}ms")
+                                    return False, None
+                                    
+                            except Exception as e:
+                                logger.warning(f"Error accessing configuration for routing: {e}")
+                    except Exception as e:
+                        logger.debug(f"Could not read capability cache: {e}")
+            
+            # Fallback to legacy logic
+            routing_time = (time.time() - start_time) * 1000
+            logger.debug(f"Using legacy routing logic - routing time: {routing_time:.1f}ms")
+            if routing_time > 50:
+                logger.warning(f"Routing decision exceeded 50ms target: {routing_time:.1f}ms")
+            return self._should_use_responses_api(), None
+            
+        except Exception as e:
+            routing_time = (time.time() - start_time) * 1000
+            logger.warning(f"Sync routing decision failed: {e} - routing time: {routing_time:.1f}ms")
+            # Conservative fallback
+            return False, None
+    
+    def _update_capability_cache_on_404(self, failed_api):
+        """Update capability cache when 404 errors are detected to avoid repeated attempts"""
+        try:
+            if not self.capability_cache:
+                return
+                
+            # Load current capabilities
+            import json
+            from pathlib import Path
+            from datetime import datetime
+            
+            cache_file = Path("data/api_capabilities.json")
+            capabilities = {
+                'responses_api_available': True,
+                'chat_completions_available': True,
+                'models_api_available': True
+            }
+            
+            # Load existing cache if it exists
+            if cache_file.exists():
+                try:
+                    with open(cache_file, 'r') as f:
+                        cache_data = json.load(f)
+                        capabilities.update(cache_data.get('capabilities', {}))
+                except Exception as e:
+                    logger.debug(f"Could not load existing cache: {e}")
+            
+            # Mark the failed API as unavailable
+            if failed_api == APIType.RESPONSES_API:
+                capabilities['responses_api_available'] = False
+                logger.info("Marked Responses API as unavailable in capability cache due to 404 error")
+            elif failed_api == APIType.CHAT_COMPLETIONS:
+                capabilities['chat_completions_available'] = False
+                logger.info("Marked Chat Completions API as unavailable in capability cache due to 404 error")
+            
+            # Update cache with long TTL to avoid repeated attempts
+            cache_data = {
+                'capabilities': capabilities,
+                'last_updated': datetime.now().isoformat(),
+                'ttl_seconds': 3600,  # 1 hour TTL for 404 errors
+                'cache_reason': f'404_error_for_{failed_api.value}'
+            }
+            
+            # Ensure data directory exists
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Write updated cache
+            with open(cache_file, 'w') as f:
+                json.dump(cache_data, f, indent=2)
+                
+            logger.info(f"Updated capability cache with 404 error for {failed_api.value}")
+            
+        except Exception as e:
+            logger.error(f"Failed to update capability cache on 404: {e}")
+        
+    async def _initialize_capabilities(self):
+        """Initialize API capabilities during startup"""
+        if not self.capability_detector or not self.capability_cache:
+            logger.warning("Capability detector not available for startup validation")
+            return
+            
+        try:
+            capabilities = await self.capability_detector.validate_startup_capabilities(
+                timeout=30,  # 30 second timeout
+                max_retries=2  # 2 retries
+            )
+            await self.capability_cache.set_capabilities(capabilities)
+            logger.info(f"Startup capability validation completed: {capabilities}")
+        except Exception as e:
+            logger.error(f"Startup capability validation failed: {e}")
+    
+    async def get_intelligent_routing_decision(self):
+        """Get routing decision from intelligent API router"""
+        if not self.api_router:
+            logger.debug("API router not available, using legacy logic")
+            return None
+            
+        try:
+            return await self.api_router.decide_api_route()
+        except Exception as e:
+            logger.error(f"Error getting routing decision: {e}")
+            # Fallback to legacy logic
+            return None
         if self.responses_api_available is None:
             logger.debug("No cached API availability, defaulting to Responses API")
             self.responses_api_available = True
@@ -279,22 +653,35 @@ class OpenAIService:
                         logger.info("Returning cached OpenAI response", correlation_id=correlation_id)
                         return cached_response
                 
-                # Use connection pool with retry logic and circuit breaker pattern
+                # Use intelligent API routing with connection pooling
                 response = None
-                client_name = "azure_openai_primary" if self._should_use_responses_api() else "azure_openai_fallback"
+                routing_decision = None
+                
+                # Get intelligent routing decision (sync version)
+                use_responses_api, routing_decision = self._get_sync_routing_decision()
+                
+                client_name = "azure_openai_primary" if use_responses_api else "azure_openai_fallback"
                 
                 # Execute with connection pooling and retry logic
                 def execute_openai_request():
-                    if self._should_use_responses_api():
-                        return self._get_response_with_responses_api(
+                    if use_responses_api:
+                        result = self._get_response_with_responses_api(
                             user_id, user_message, use_streaming, image_data, 
                             file_data, file_name, correlation_id
                         )
+                        # Record success for intelligent routing
+                        if self.api_router:
+                            self.api_router.record_request_result(APIType.RESPONSES_API, True)
+                        return result
                     else:
-                        return self._get_response_with_chat_completions(
+                        result = self._get_response_with_chat_completions(
                             user_id, user_message, use_streaming, image_data, 
                             file_data, file_name, correlation_id
                         )
+                        # Record success for intelligent routing
+                        if self.api_router:
+                            self.api_router.record_request_result(APIType.CHAT_COMPLETIONS, True)
+                        return result
                 
                 # Use connection pool manager with retry logic
                 backoff = ExponentialBackoff(base_delay=1.0, max_delay=30.0, multiplier=2.0)
@@ -817,11 +1204,21 @@ class OpenAIService:
         self.api_failure_count += 1
         self.api_check_timestamp = time.time()
         
-        # Check if this is a permanent failure (404, not found)
-        if "404" in str(error) or "not found" in str(error).lower():
-            logger.info("Responses API permanently unavailable (404), switching to Chat Completions")
+        # Enhanced 404 error handling with intelligent routing integration
+        error_str = str(error).lower()
+        if "404" in str(error) or "not found" in error_str or "feature_not_enabled" in error_str:
+            logger.info("API permanently unavailable (404/not found), updating intelligent routing cache")
+            
+            # Update legacy circuit breaker
             self.responses_api_available = False
             self.api_failure_count = self.max_failures_before_fallback
+            
+            # Update intelligent routing system
+            if self.api_router:
+                self.api_router.record_request_result(APIType.RESPONSES_API, False)
+            
+            # Update capability cache to prevent repeated attempts
+            self._update_capability_cache_on_404(APIType.RESPONSES_API)
         elif self.api_failure_count >= self.max_failures_before_fallback:
             logger.warning(f"Responses API failed {self.api_failure_count} times, temporarily switching to Chat Completions")
             self.responses_api_available = False

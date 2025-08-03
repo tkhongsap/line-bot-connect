@@ -515,3 +515,30 @@ __all__ = [
     'log_exception',
     'wrap_api_exception'
 ]
+
+
+# Import Azure OpenAI specific exceptions
+try:
+    from .azure_openai_exceptions import (
+        AzureOpenAIException,
+        FeatureNotEnabledError,
+        DeploymentNotFoundError,
+        AuthenticationFailedError,
+        QuotaExceededError,
+        APICapabilityError,
+        create_azure_openai_exception
+    )
+    
+    # Add to exports
+    __all__.extend([
+        'AzureOpenAIException',
+        'FeatureNotEnabledError', 
+        'DeploymentNotFoundError',
+        'AuthenticationFailedError',
+        'QuotaExceededError',
+        'APICapabilityError',
+        'create_azure_openai_exception'
+    ])
+except ImportError:
+    # Handle case where azure_openai_exceptions module is not available
+    pass

@@ -83,6 +83,26 @@ class AzureOpenAIConfig(BaseModel):
         description="Azure OpenAI deployment name"
     )
     
+    # New capability detection and routing settings
+    prefer_responses_api: bool = Field(
+        default=True,
+        description="Prefer Responses API over Chat Completions when available"
+    )
+    force_chat_completions: bool = Field(
+        default=False,
+        description="Force use of Chat Completions API (overrides prefer_responses_api)"
+    )
+    capability_cache_ttl: int = Field(
+        default=300,
+        ge=60,
+        le=3600,
+        description="Capability detection cache TTL in seconds (60-3600)"
+    )
+    enable_startup_validation: bool = Field(
+        default=True,
+        description="Enable API capability validation on service startup"
+    )
+    
     @field_validator('endpoint')
     @classmethod
     def validate_endpoint(cls, v):
@@ -96,6 +116,24 @@ class AzureOpenAIConfig(BaseModel):
         if not v:
             raise ValueError("Azure OpenAI API key is required")
         return v
+    
+    @model_validator(mode='after')
+    def validate_api_preferences(self):
+        """Validate API preference settings for logical consistency"""
+        if self.force_chat_completions and self.prefer_responses_api:
+            # This is acceptable - force_chat_completions takes precedence
+            # Just log a warning during runtime rather than fail validation
+            pass
+        return self
+    
+    def get_effective_api_preference(self) -> str:
+        """Get the effective API preference considering all settings"""
+        if self.force_chat_completions:
+            return "chat_completions_only"
+        elif self.prefer_responses_api:
+            return "responses_api_preferred"
+        else:
+            return "chat_completions_preferred"
     
     model_config = ConfigDict(frozen=True)
 
@@ -465,7 +503,11 @@ class CentralizedConfig(BaseSettings):
                 "https://thaibev-azure-subscription-ai-foundry.cognitiveservices.azure.com"
             ),
             api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2025-01-01-preview"),
-            deployment_name=os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1-nano")
+            deployment_name=os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1-nano"),
+            prefer_responses_api=os.environ.get("AZURE_OPENAI_PREFER_RESPONSES_API", "true").lower() == "true",
+            force_chat_completions=os.environ.get("AZURE_OPENAI_FORCE_CHAT_COMPLETIONS", "false").lower() == "true",
+            capability_cache_ttl=int(os.environ.get("AZURE_OPENAI_CAPABILITY_CACHE_TTL", "300")),
+            enable_startup_validation=os.environ.get("AZURE_OPENAI_ENABLE_STARTUP_VALIDATION", "true").lower() == "true"
         )
         
         conversation_config = ConversationConfig(

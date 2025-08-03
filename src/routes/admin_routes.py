@@ -516,3 +516,109 @@ def admin_server_error(error):
     return render_template('admin/error.html', 
                          error="Internal server error", 
                          page_title="Server Error"), 500
+
+
+@admin_bp.route('/health/azure-openai')
+def azure_openai_health():
+    """
+    Health check endpoint for Azure OpenAI API capabilities and status.
+    
+    Returns current API capabilities, routing status, and performance metrics.
+    """
+    try:
+        from src.config.centralized_config import get_config
+        from src.utils.capability_cache import get_capability_cache
+        import json
+        from pathlib import Path
+        
+        start_time = time.time()
+        config = get_config()
+        
+        # Get cached capabilities
+        capability_cache = get_capability_cache()
+        cache_file = Path("data/api_capabilities.json")
+        
+        capabilities = {
+            'responses_api_available': False,
+            'chat_completions_available': True,
+            'models_api_available': False,
+            'last_updated': None,
+            'cache_age_seconds': None,
+            'cache_source': 'default'
+        }
+        
+        if cache_file.exists():
+            try:
+                with open(cache_file, 'r') as f:
+                    cache_data = json.load(f)
+                    
+                capabilities.update(cache_data.get('capabilities', {}))
+                capabilities['last_updated'] = cache_data.get('last_updated')
+                capabilities['cache_age_seconds'] = cache_data.get('ttl_seconds', 300)
+                capabilities['cache_source'] = 'file'
+                
+                # Calculate actual age
+                if capabilities['last_updated']:
+                    from datetime import datetime
+                    last_updated = datetime.fromisoformat(capabilities['last_updated'])
+                    age = (datetime.now() - last_updated).total_seconds()
+                    capabilities['actual_age_seconds'] = age
+                    
+            except Exception as e:
+                logger.warning(f"Could not read capability cache: {e}")
+        
+        # Get configuration status
+        config_status = {
+            'prefer_responses_api': config.azure_openai.prefer_responses_api,
+            'force_chat_completions': config.azure_openai.force_chat_completions,
+            'enable_startup_validation': config.azure_openai.enable_startup_validation,
+            'capability_cache_ttl': config.azure_openai.capability_cache_ttl,
+            'deployment_name': config.azure_openai.deployment_name[:20] + "..." if len(config.azure_openai.deployment_name) > 20 else config.azure_openai.deployment_name,
+            'endpoint_configured': bool(config.azure_openai.endpoint)
+        }
+        
+        # Determine current routing decision
+        routing_status = "unknown"
+        if config.azure_openai.force_chat_completions:
+            routing_status = "forced_chat_completions"
+        elif capabilities['responses_api_available'] and config.azure_openai.prefer_responses_api:
+            routing_status = "prefer_responses_api"
+        else:
+            routing_status = "default_chat_completions"
+        
+        # Calculate response time
+        response_time_ms = (time.time() - start_time) * 1000
+        
+        response_data = {
+            'status': 'healthy',
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'capabilities': capabilities,
+            'configuration': config_status,
+            'routing_status': routing_status,
+            'performance': {
+                'health_check_time_ms': round(response_time_ms, 2),
+                'cache_access_time_ms': round((time.time() - start_time) * 1000, 2)
+            },
+            'system_info': {
+                'intelligent_routing_enabled': True,
+                'capability_detection_enabled': True,
+                'cache_file_exists': cache_file.exists(),
+                'cache_file_path': str(cache_file)
+            }
+        }
+        
+        # Set appropriate HTTP status based on capabilities
+        if capabilities['responses_api_available'] or capabilities['chat_completions_available']:
+            return jsonify(response_data), 200
+        else:
+            response_data['status'] = 'degraded'
+            return jsonify(response_data), 206  # Partial Content
+            
+    except Exception as e:
+        logger.error(f"Azure OpenAI health check failed: {e}")
+        return jsonify({
+            'status': 'error',
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'error': str(e),
+            'health_check_failed': True
+        }), 500

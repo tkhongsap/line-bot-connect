@@ -24,7 +24,8 @@
       "WebFetch(domain:claude.ai)",
       "Bash(git pull:*)",
       "Bash(git fetch:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "WebFetch(domain:lineforbusiness.com)"
     ],
     "deny": []
   }

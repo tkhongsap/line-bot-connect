@@ -41,6 +41,12 @@ class Settings:
         self.AZURE_OPENAI_API_VERSION = self._config.azure_openai.api_version
         self.AZURE_OPENAI_DEPLOYMENT_NAME = self._config.azure_openai.deployment_name
         
+        # New Azure OpenAI capability detection settings
+        self.AZURE_OPENAI_PREFER_RESPONSES_API = self._config.azure_openai.prefer_responses_api
+        self.AZURE_OPENAI_FORCE_CHAT_COMPLETIONS = self._config.azure_openai.force_chat_completions
+        self.AZURE_OPENAI_CAPABILITY_CACHE_TTL = self._config.azure_openai.capability_cache_ttl
+        self.AZURE_OPENAI_ENABLE_STARTUP_VALIDATION = self._config.azure_openai.enable_startup_validation
+        
         # Application Configuration
         self.DEBUG = self._config.application.debug
         self.LOG_LEVEL = self._config.application.log_level

@@ -415,6 +415,34 @@ class ConfigurationValidator:
     def _validate_feature_dependencies(self, config: CentralizedConfig) -> None:
         """Validate feature dependencies and interactions"""
         
+        # Azure OpenAI capability detection settings
+        if config.azure_openai.force_chat_completions and config.azure_openai.prefer_responses_api:
+            self._add_issue(
+                ValidationSeverity.WARNING,
+                "CONFLICTING_API_PREFERENCES",
+                "force_chat_completions overrides prefer_responses_api setting",
+                field_path="azure_openai.force_chat_completions",
+                suggestion="Consider setting prefer_responses_api=false when force_chat_completions=true"
+            )
+        
+        # Validate capability cache TTL is within reasonable bounds
+        if config.azure_openai.capability_cache_ttl < 60:
+            self._add_issue(
+                ValidationSeverity.WARNING,
+                "LOW_CACHE_TTL",
+                f"Very low capability cache TTL: {config.azure_openai.capability_cache_ttl}s",
+                field_path="azure_openai.capability_cache_ttl",
+                suggestion="Consider TTL >= 60 seconds to reduce API detection overhead"
+            )
+        elif config.azure_openai.capability_cache_ttl > 3600:
+            self._add_issue(
+                ValidationSeverity.WARNING,
+                "HIGH_CACHE_TTL",
+                f"Very high capability cache TTL: {config.azure_openai.capability_cache_ttl}s",
+                field_path="azure_openai.capability_cache_ttl",
+                suggestion="Consider TTL <= 3600 seconds for timely capability updates"
+            )
+        
         # Web search and multimodal features
         if config.web_search_enabled and config.web_search_rate_limit <= 0:
             self._add_issue(

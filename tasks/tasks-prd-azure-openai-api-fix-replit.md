@@ -29,36 +29,36 @@ Based on PRD: `tasks/prd-azure-openai-api-fix-replit.md`
 
 ## Tasks
 
-- [ ] 1.0 Enhanced Configuration Management
-  - [ ] 1.1 Add new fields to `AzureOpenAIConfig` model: `prefer_responses_api`, `force_chat_completions`, `capability_cache_ttl`, `enable_startup_validation`
-  - [ ] 1.2 Update `config_adapters.py` to expose new configuration options with backward compatibility
-  - [ ] 1.3 Add validation rules in `validation.py` for new configuration fields and logical combinations
-  - [ ] 1.4 Update environment variable loading in `centralized_config.py` `from_env` method for new options
-  - [ ] 1.5 Add configuration validation method to detect conflicting settings (e.g., prefer_responses_api + force_chat_completions)
+- [x] 1.0 Enhanced Configuration Management
+  - [x] 1.1 Add new fields to `AzureOpenAIConfig` model: `prefer_responses_api`, `force_chat_completions`, `capability_cache_ttl`, `enable_startup_validation`
+  - [x] 1.2 Update `config_adapters.py` to expose new configuration options with backward compatibility
+  - [x] 1.3 Add validation rules in `validation.py` for new configuration fields and logical combinations
+  - [x] 1.4 Update environment variable loading in `centralized_config.py` `from_env` method for new options
+  - [x] 1.5 Add configuration validation method to detect conflicting settings (e.g., prefer_responses_api + force_chat_completions)
 
-- [ ] 2.0 API Capability Detection System
-  - [ ] 2.1 Create `azure_api_detector.py` with `AzureOpenAICapabilityDetector` class for endpoint testing
-  - [ ] 2.2 Implement `detect_capabilities()` method to test Responses API, Chat Completions, and Models endpoints
-  - [ ] 2.3 Create `capability_cache.py` with JSON file-based caching, TTL management, and in-memory fallback
-  - [ ] 2.4 Add `_test_responses_api()`, `_test_chat_completions()`, and `_test_models_endpoint()` methods with proper error handling
-  - [ ] 2.5 Implement startup validation in detector with configurable timeout and retry logic
-  - [ ] 2.6 Add cache invalidation and refresh mechanisms with background updates
+- [x] 2.0 API Capability Detection System
+  - [x] 2.1 Create `azure_api_detector.py` with `AzureOpenAICapabilityDetector` class for endpoint testing
+  - [x] 2.2 Implement `detect_capabilities()` method to test Responses API, Chat Completions, and Models endpoints
+  - [x] 2.3 Create `capability_cache.py` with JSON file-based caching, TTL management, and in-memory fallback
+  - [x] 2.4 Add `_test_responses_api()`, `_test_chat_completions()`, and `_test_models_endpoint()` methods with proper error handling
+  - [x] 2.5 Implement startup validation in detector with configurable timeout and retry logic
+  - [x] 2.6 Add cache invalidation and refresh mechanisms with background updates
 
-- [ ] 3.0 Intelligent API Routing Logic
-  - [ ] 3.1 Create `api_router.py` with `APIRouter` class that makes routing decisions based on capabilities
-  - [ ] 3.2 Enhance `openai_service.py` to integrate capability detection and intelligent routing on initialization
-  - [ ] 3.3 Update `_should_use_responses_api()` method to use capability detection instead of basic circuit breaker
-  - [ ] 3.4 Implement preference override logic to respect force_chat_completions and prefer_responses_api settings
-  - [ ] 3.5 Add performance monitoring for routing decisions to ensure <50ms overhead target
-  - [ ] 3.6 Update circuit breaker logic to permanently cache 404 errors and avoid repeated failed attempts
+- [x] 3.0 Intelligent API Routing Logic
+  - [x] 3.1 Create `api_router.py` with `APIRouter` class that makes routing decisions based on capabilities
+  - [x] 3.2 Enhance `openai_service.py` to integrate capability detection and intelligent routing on initialization
+  - [x] 3.3 Update `_should_use_responses_api()` method to use capability detection instead of basic circuit breaker
+  - [x] 3.4 Implement preference override logic to respect force_chat_completions and prefer_responses_api settings
+  - [x] 3.5 Add performance monitoring for routing decisions to ensure <50ms overhead target
+  - [x] 3.6 Update circuit breaker logic to permanently cache 404 errors and avoid repeated failed attempts
 
-- [ ] 4.0 Health Monitoring & Error Handling
-  - [ ] 4.1 Create `azure_openai_exceptions.py` with structured error types: `FeatureNotEnabledError`, `DeploymentNotFoundError`, `AuthenticationFailedError`
-  - [ ] 4.2 Add `/health/azure-openai` endpoint in `admin_routes.py` that exposes current API capabilities and status
-  - [ ] 4.3 Enhance error logging in `openai_service.py` with structured logging and correlation IDs for troubleshooting
-  - [ ] 4.4 Update error handling to classify errors properly and provide actionable error messages
-  - [ ] 4.5 Add metrics collection for API usage distribution (Responses vs Chat Completions) and error rates
-  - [ ] 4.6 Implement graceful degradation messaging that clearly indicates which API is being used
+- [x] 4.0 Health Monitoring & Error Handling
+  - [x] 4.1 Create `azure_openai_exceptions.py` with structured error types: `FeatureNotEnabledError`, `DeploymentNotFoundError`, `AuthenticationFailedError`
+  - [x] 4.2 Add `/health/azure-openai` endpoint in `admin_routes.py` that exposes current API capabilities and status
+  - [x] 4.3 Enhance error logging in `openai_service.py` with structured logging and correlation IDs for troubleshooting
+  - [x] 4.4 Update error handling to classify errors properly and provide actionable error messages
+  - [x] 4.5 Add metrics collection for API usage distribution (Responses vs Chat Completions) and error rates
+  - [x] 4.6 Implement graceful degradation messaging that clearly indicates which API is being used
 
 - [ ] 5.0 Integration & Testing
   - [ ] 5.1 Create unit tests for `azure_api_detector.py` with mocked Azure OpenAI responses for various scenarios
