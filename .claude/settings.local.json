@@ -23,7 +23,8 @@
       "Bash(pytest:*)",
       "WebFetch(domain:claude.ai)",
       "Bash(git pull:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Bash(git push:*)"
     ],
     "deny": []
   }
