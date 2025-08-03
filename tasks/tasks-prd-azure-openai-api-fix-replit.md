@@ -60,11 +60,11 @@ Based on PRD: `tasks/prd-azure-openai-api-fix-replit.md`
   - [x] 4.5 Add metrics collection for API usage distribution (Responses vs Chat Completions) and error rates
   - [x] 4.6 Implement graceful degradation messaging that clearly indicates which API is being used
 
-- [ ] 5.0 Integration & Testing
-  - [ ] 5.1 Create unit tests for `azure_api_detector.py` with mocked Azure OpenAI responses for various scenarios
-  - [ ] 5.2 Create unit tests for `capability_cache.py` testing TTL behavior, file operations, and in-memory fallback
-  - [ ] 5.3 Create unit tests for `api_router.py` testing routing decisions based on different capability combinations
-  - [ ] 5.4 Create integration tests for enhanced `openai_service.py` testing full capability detection and routing flow
-  - [ ] 5.5 Add performance tests to validate routing overhead stays under 50ms target
-  - [ ] 5.6 Create error scenario tests simulating network failures, invalid configs, and Azure API changes
-  - [ ] 5.7 Update project documentation and deployment checklist with new configuration options and validation steps
+- [x] 5.0 Integration & Testing
+  - [x] 5.1 Create unit tests for `azure_api_detector.py` with mocked Azure OpenAI responses for various scenarios
+  - [x] 5.2 Create unit tests for `capability_cache.py` testing TTL behavior, file operations, and in-memory fallback
+  - [x] 5.3 Create unit tests for `api_router.py` testing routing decisions based on different capability combinations
+  - [x] 5.4 Create integration tests for enhanced `openai_service.py` testing full capability detection and routing flow
+  - [x] 5.5 Add performance tests to validate routing overhead stays under 50ms target
+  - [x] 5.6 Create error scenario tests simulating network failures, invalid configs, and Azure API changes
+  - [x] 5.7 Update project documentation and deployment checklist with new configuration options and validation steps
