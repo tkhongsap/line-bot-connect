@@ -10,6 +10,12 @@ A sophisticated LINE webhook service leveraging Azure OpenAI for intelligent, mu
 - **Latest Feature**: Comprehensive file type support for document analysis
 
 ## Recent Changes
+- **2025-08-03**: Created PRD for Azure OpenAI API 404 Error Fix
+  - Documented comprehensive solution for eliminating Responses API 404 errors
+  - Designed intelligent API capability detection and fallback mechanisms
+  - Planned implementation with file-based caching and real-time routing
+  - Created Replit-specific deployment specifications and testing strategy
+  - PRD saved as `tasks/prd-azure-openai-api-fix-replit.md`
 - **2025-07-29**: Implemented comprehensive file type support
   - Added FileMessage handler for processing all OpenAI-compatible file types
   - Support for PDF, DOC, XLS, PPT, code files, and more (20+ formats)
