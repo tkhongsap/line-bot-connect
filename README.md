@@ -24,9 +24,8 @@ A sophisticated Flask-based LINE Bot application powered by Azure OpenAI, featur
 ## Features
 
 ### 🤖 Conversational AI
-- **Multi-modal Intelligence**: GPT-4.1-nano with text, image, and file processing
+- **Multi-modal Intelligence**: GPT-4o with text, image, and file processing
 - **Multilingual Support**: Native support for 9 languages with cultural sensitivity
-- **Web Search Integration**: Real-time information retrieval for news, weather, stocks
 - **File Processing**: Support for 20+ formats including documents, spreadsheets, code files
 - **Image Understanding**: Advanced vision capabilities with HEIC/HEIF support
 - **Conversation Memory**: Extended 100-message history with intelligent cleanup
@@ -51,7 +50,7 @@ A sophisticated Flask-based LINE Bot application powered by Azure OpenAI, featur
 
 ### Service-Oriented Design
 - **LineService**: LINE Bot SDK integration with optimized connection pooling
-- **OpenAIService**: Hybrid Azure OpenAI with Responses API + Chat Completions fallback
+- **OpenAIService**: Azure OpenAI integration with connection pooling and circuit breaker
 - **ConversationService**: Unified conversation management with hybrid storage
 - **RichMessageService**: Advanced Rich Message system with 4-tier content fallback
 - **Admin Interface**: Comprehensive dashboard for campaign management and analytics
@@ -127,7 +126,7 @@ LINE_CHANNEL_ID=your_line_channel_id
 # Azure OpenAI Configuration
 AZURE_OPENAI_API_KEY=your_azure_openai_api_key
 AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4.1-nano
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o-mini
 
 # Flask Configuration
 SESSION_SECRET=your_secure_session_secret
@@ -305,14 +304,14 @@ curl http://localhost:5000/connection-pools
 
 ### Conversational AI Examples
 ```
-User: "What's the latest news about Thailand?"
-Bot: [Returns current news with sources via web search]
-
-User: "What's Tesla's stock price today?"
-Bot: [Provides real-time market data]
-
 User: [Sends image] "What do you see?"
 Bot: [Detailed image analysis with conversation context]
+
+User: "Explain this code snippet"
+Bot: [Code analysis and explanation]
+
+User: "Help me debug this error"
+Bot: [Technical troubleshooting assistance]
 
 User: "สวัสดี" (Thai greeting)
 Bot: [Responds in Thai with cultural appropriateness]
